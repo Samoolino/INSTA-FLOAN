@@ -7,6 +7,7 @@ export type V2QuoteConfig = {
   router: Address
   path: Address[]
   amountIn: bigint
+  expectedBlockNumber?: bigint
 }
 
 export type V2Quote = {
@@ -28,6 +29,9 @@ export async function quoteUniswapV2(config: V2QuoteConfig): Promise<V2Quote> {
 
   const client = createPublicClient({chain: config.chain, transport: http(config.rpcUrl)})
   const blockNumber = await client.getBlockNumber()
+  if (config.expectedBlockNumber !== undefined && blockNumber !== config.expectedBlockNumber) {
+    throw new Error('BLOCK_CHANGED_DURING_QUOTE')
+  }
   const amounts = await client.readContract({address: config.router, abi, functionName: 'getAmountsOut', args: [config.amountIn, config.path]})
   const amountOut = amounts[amounts.length - 1]
   if (!amountOut || amountOut <= 0n) throw new Error('INVALID_AMOUNT_OUT')
