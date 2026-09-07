@@ -1,5 +1,6 @@
 import {encodeAbiParameters, encodeFunctionData, parseAbi, type Address, type Hex} from 'viem'
 import {buildInstadappCastCall, type InstadappSimulationCall} from './instadapp-adapter'
+import {assertInstapoolV4Deployment} from './instapool-v4-config'
 
 /**
  * Verified against Instadapp's dsa-connectors Instapool-v4 source:
@@ -8,9 +9,8 @@ import {buildInstadappCastCall, type InstadappSimulationCall} from './instadapp-
  * The connector decodes `data` as (string[] targets, bytes[] callDatas)
  * and internally invokes the Smart Account cast(string[],bytes[],address).
  *
- * The connector address is deliberately supplied by configuration. This file
- * does not hard-code a deployment address because deployments can differ by
- * chain/version and must be independently verified before simulation.
+ * The connector is selected from the chain-specific deployment registry.
+ * Arbitrary connector addresses are rejected at this boundary.
  */
 export type InstapoolV4FlashBorrow = {
   token: Address
@@ -22,6 +22,7 @@ export type InstapoolV4FlashBorrow = {
 }
 
 export type InstapoolV4Envelope = {
+  chainId: number
   connector: Address
   smartAccount: Address
   origin: Address
@@ -55,7 +56,9 @@ export function encodeInstapoolV4FlashData(input: InstapoolV4FlashBorrow): Hex {
 }
 
 export function buildInstapoolV4FlashBorrowCall(input: InstapoolV4Envelope): InstadappSimulationCall {
-  if (!input.connector) throw new Error('MISSING_INSTAPOOL_CONNECTOR')
+  const verifiedConnector = assertInstapoolV4Deployment(input.chainId)
+  if (verifiedConnector !== input.connector) throw new Error('INSTAPOOL_V4_CONNECTOR_MISMATCH')
+
   const data = encodeInstapoolV4FlashData(input.flash)
   const extraData = input.flash.extraData ?? '0x'
 
@@ -67,15 +70,16 @@ export function buildInstapoolV4FlashBorrowCall(input: InstapoolV4Envelope): Ins
 
   return buildInstadappCastCall({
     smartAccount: input.smartAccount,
-    targets: [input.connector],
+    targets: [verifiedConnector],
     datas: [connectorData],
     origin: input.origin,
   })
 }
 
 /**
- * Production authorization remains fail-closed until the configured connector
- * deployment has been verified for the selected chain and connector version.
+ * Legacy explicit gate retained for callers that have already completed
+ * deployment verification. New call construction uses the chain-specific
+ * registry above and cannot bypass it with an arbitrary address.
  */
 export function assertInstapoolV4DeploymentVerified(verified: boolean): void {
   if (!verified) throw new Error('INSTAPOOL_V4_DEPLOYMENT_NOT_VERIFIED')
