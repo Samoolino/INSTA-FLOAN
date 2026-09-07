@@ -20,6 +20,12 @@ const plan={
   safetyReserveUsd:2,
 }
 
+const unverifiedAtomicRepaymentProof={
+  simulationSucceeded:false,
+  requiredRepaymentAmount:101n,
+  repaymentEnforcementVerified:false,
+}
+
 test('Instadapp pre-execution remains fail-closed when RPC is missing',async()=>{
   const result=await runInstadappPreExecution({
     plan,
@@ -31,11 +37,13 @@ test('Instadapp pre-execution remains fail-closed when RPC is missing',async()=>
     finalTokenAmount:101n,
     loanAmountToken:100n,
     feeAmountToken:1n,
+    atomicRepaymentProof:unverifiedAtomicRepaymentProof,
   })
 
   assert.equal(result.authorized,false)
   assert.equal(result.instadapp.simulation.ok,false)
   assert.match(result.reasons.join('|'),/SIMULATION_FAILED:RPC_NOT_CONFIGURED/)
+  assert.match(result.reasons.join('|'),/REPAYMENT_ENFORCEMENT_NOT_VERIFIED/)
 })
 
 test('Instadapp pre-execution rejects invalid cast before RPC simulation',async()=>{
@@ -50,6 +58,29 @@ test('Instadapp pre-execution rejects invalid cast before RPC simulation',async(
       finalTokenAmount:101n,
       loanAmountToken:100n,
       feeAmountToken:1n,
+      atomicRepaymentProof:unverifiedAtomicRepaymentProof,
+    }),
+    /MISSING_CAST_TARGETS/,
+  )
+})
+
+test('Instadapp pre-execution requires verified atomic repayment enforcement',async()=>{
+  await assert.rejects(
+    () => runInstadappPreExecution({
+      plan,
+      smartAccount:account,
+      targets:[],
+      datas:[],
+      origin,
+      rpcUrl:'',
+      finalTokenAmount:101n,
+      loanAmountToken:100n,
+      feeAmountToken:1n,
+      atomicRepaymentProof:{
+        simulationSucceeded:true,
+        requiredRepaymentAmount:101n,
+        repaymentEnforcementVerified:false,
+      },
     }),
     /MISSING_CAST_TARGETS/,
   )
