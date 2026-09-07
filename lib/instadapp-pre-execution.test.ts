@@ -1,6 +1,7 @@
 import {strict as assert} from 'node:assert'
 import {test} from 'node:test'
 import {runInstadappPreExecution} from './instadapp-pre-execution'
+import {validatePreExecution} from './pre-execution-gate'
 
 const account='0x0000000000000000000000000000000000000001' as `0x${string}`
 const target='0x0000000000000000000000000000000000000002' as `0x${string}`
@@ -64,24 +65,23 @@ test('Instadapp pre-execution rejects invalid cast before RPC simulation',async(
   )
 })
 
-test('Instadapp pre-execution requires verified atomic repayment enforcement',async()=>{
-  await assert.rejects(
-    () => runInstadappPreExecution({
-      plan,
-      smartAccount:account,
-      targets:[],
-      datas:[],
-      origin,
-      rpcUrl:'',
-      finalTokenAmount:101n,
-      loanAmountToken:100n,
-      feeAmountToken:1n,
-      atomicRepaymentProof:{
-        simulationSucceeded:true,
-        requiredRepaymentAmount:101n,
-        repaymentEnforcementVerified:false,
-      },
-    }),
-    /MISSING_CAST_TARGETS/,
-  )
+test('pre-execution gate directly blocks authorization without verified lender enforcement', () => {
+  const result=validatePreExecution({
+    plan,
+    finalTokenAmount:101n,
+    loanAmountToken:100n,
+    feeAmountToken:1n,
+    simulationOk:true,
+    atomicRepaymentProof:{
+      simulationSucceeded:true,
+      requiredRepaymentAmount:101n,
+      repaymentEnforcementVerified:false,
+    },
+  })
+
+  assert.equal(result.execution.authorized,true)
+  assert.equal(result.repayment.sufficient,true)
+  assert.equal(result.atomicRepayment.verified,false)
+  assert.equal(result.authorized,false)
+  assert.deepEqual(result.reasons,['REPAYMENT_ENFORCEMENT_NOT_VERIFIED'])
 })
