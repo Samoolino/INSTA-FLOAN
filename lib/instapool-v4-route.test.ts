@@ -56,31 +56,42 @@ describe('Instapool V4 two-leg route', () => {
   })
 
   it('decodes the complete nested cast envelope without changing connector identity', () => {
-    const simulation = buildTwoLegUniswapInstapoolSimulation({
-      chainId: 1,
-      connector: CONNECTOR,
-      smartAccount: SMART_ACCOUNT,
-      origin: ORIGIN,
-      route: baseRoute(),
-    })
+    const originalAddress=process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+    const originalVerified=process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+    process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=CONNECTOR
+    process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM='true'
+    try {
+      const simulation = buildTwoLegUniswapInstapoolSimulation({
+        chainId: 1,
+        connector: CONNECTOR,
+        smartAccount: SMART_ACCOUNT,
+        origin: ORIGIN,
+        route: baseRoute(),
+      })
 
-    assert.equal(simulation.from, SMART_ACCOUNT)
-    assert.equal(simulation.to, SMART_ACCOUNT)
+      assert.equal(simulation.from, SMART_ACCOUNT)
+      assert.equal(simulation.to, SMART_ACCOUNT)
 
-    const cast = decodeFunctionData({abi: castAbi, data: simulation.data})
-    assert.deepEqual(cast.args?.[0], ['Instapool-v4'])
-    assert.equal(cast.args?.[1].length, 1)
-    assert.equal(cast.args?.[2], ORIGIN)
+      const cast = decodeFunctionData({abi: castAbi, data: simulation.data})
+      assert.deepEqual(cast.args?.[0], ['Instapool-v4'])
+      assert.equal(cast.args?.[1].length, 1)
+      assert.equal(cast.args?.[2], ORIGIN)
 
-    const [token, amount, route, nestedData, extraData] = decodeFunctionData({abi: flashAbi, data: cast.args?.[1][0] as Hex}).args!
-    assert.equal(token, TOKEN_A)
-    assert.equal(amount, AMOUNT)
-    assert.equal(route, 0n)
-    assert.equal(extraData, '0x')
+      const [token, amount, route, nestedData, extraData] = decodeFunctionData({abi: flashAbi, data: cast.args?.[1][0] as Hex}).args!
+      assert.equal(token, TOKEN_A)
+      assert.equal(amount, AMOUNT)
+      assert.equal(route, 0n)
+      assert.equal(extraData, '0x')
 
-    const [targets, callDatas] = decodeAbiParameters([{type: 'string[]'}, {type: 'bytes[]'}], nestedData as Hex)
-    assert.deepEqual(targets, ['UNISWAP-V2-A', 'UNISWAP-V2-A', 'Instapool-v4'])
-    assert.equal(callDatas.length, 3)
+      const [targets, callDatas] = decodeAbiParameters([{type: 'string[]'}, {type: 'bytes[]'}], nestedData as Hex)
+      assert.deepEqual(targets, ['UNISWAP-V2-A', 'UNISWAP-V2-A', 'Instapool-v4'])
+      assert.equal(callDatas.length, 3)
+    } finally {
+      if(originalAddress===undefined) delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+      else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=originalAddress
+      if(originalVerified===undefined) delete process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+      else process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM=originalVerified
+    }
   })
 
   it('rejects a broken token path', () => {
