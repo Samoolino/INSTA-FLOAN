@@ -3,13 +3,14 @@ import {test} from 'node:test'
 import {buildInstadappCastCall, assertInstadappExecutionReady} from './instadapp-adapter'
 
 const account='0x0000000000000000000000000000000000000001' as `0x${string}`
-const target='0x0000000000000000000000000000000000000002' as `0x${string}`
+const target='UNISWAP-V2-A'
 const origin='0x0000000000000000000000000000000000000003' as `0x${string}`
 
 const valid={smartAccount:account,targets:[target],datas:['0x1234' as `0x${string}`],origin}
 
 test('Instadapp boundary rejects empty targets',()=>assert.throws(()=>buildInstadappCastCall({...valid,targets:[]}),/MISSING_CAST_TARGETS/))
 test('Instadapp boundary rejects mismatched target/data arrays',()=>assert.throws(()=>buildInstadappCastCall({...valid,datas:[]}),/CAST_ARRAY_LENGTH_MISMATCH/))
+test('Instadapp boundary rejects empty target names',()=>assert.throws(()=>buildInstadappCastCall({...valid,targets:['']}),/INVALID_CAST_TARGET/))
 test('Instadapp boundary rejects empty calldata',()=>assert.throws(()=>buildInstadappCastCall({...valid,datas:['0x' as `0x${string}`]}),/MISSING_CAST_DATA/))
 test('Instadapp boundary produces a cast simulation call without submission',()=>{
  const call=buildInstadappCastCall(valid)
