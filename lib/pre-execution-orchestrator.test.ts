@@ -16,6 +16,12 @@ const plan = {
   safetyReserveUsd:2,
 }
 
+const unverifiedAtomicRepaymentProof = {
+  simulationSucceeded:false,
+  requiredRepaymentAmount:1005n,
+  repaymentEnforcementVerified:false,
+}
+
 test('missing RPC is converted into a failed simulation and blocks authorization',async()=>{
  const result=await runPreExecutionOrchestration({
   plan,
@@ -23,8 +29,10 @@ test('missing RPC is converted into a failed simulation and blocks authorization
   finalTokenAmount:1010n,
   loanAmountToken:1000n,
   feeAmountToken:5n,
+  atomicRepaymentProof:unverifiedAtomicRepaymentProof,
  })
  assert.equal(result.simulation.ok,false)
  assert.equal(result.authorized,false)
  assert.ok(result.reasons.includes('SIMULATION_FAILED:RPC_NOT_CONFIGURED'))
+ assert.ok(result.reasons.includes('REPAYMENT_ENFORCEMENT_NOT_VERIFIED'))
 })
