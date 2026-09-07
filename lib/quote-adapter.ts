@@ -1,21 +1,15 @@
-import {normalizeQuotes, type Quote} from './market'
-
-const positive = (value: string | undefined, fallback = 0) => {
-  const n = Number(value)
-  return Number.isFinite(n) && n >= 0 ? n : fallback
-}
+import {type Quote} from './market'
 
 export type QuoteAdapterConfig = {
   rpcUrl: string
-  maxAgeMs?: number
 }
 
 /**
  * Server-side quote adapter boundary.
- * It intentionally does not invent prices: a venue adapter must supply
- * a verified quote payload before an opportunity can enter the target engine.
+ * Chain health is verified here, but no price is fabricated. A venue-specific
+ * adapter must return a real, timestamped quote before it reaches the target engine.
  */
-export async function fetchRpcHealthQuote(config: QuoteAdapterConfig): Promise<Quote[]> {
+export async function verifyRpc(config: QuoteAdapterConfig): Promise<{blockNumber: number; quotes: Quote[]}> {
   if (!config.rpcUrl) throw new Error('RPC URL is not configured')
 
   const response = await fetch(config.rpcUrl, {
@@ -29,8 +23,5 @@ export async function fetchRpcHealthQuote(config: QuoteAdapterConfig): Promise<Q
   if (json.error) throw new Error(json.error.message || 'RPC error')
   if (!json.result) throw new Error('RPC returned no block number')
 
-  // Health is not a market quote. Return an empty normalized set rather than
-  // fabricating an opportunity from chain availability.
-  void positive(process.env.GAS_USD)
-  return normalizeQuotes([])
+  return {blockNumber: Number.parseInt(json.result, 16), quotes: []}
 }
