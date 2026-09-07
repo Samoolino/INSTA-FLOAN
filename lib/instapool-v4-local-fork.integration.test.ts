@@ -63,28 +63,42 @@ async function rpc(method:string, params:unknown[]) {
   return json.result
 }
 
+async function impersonate(account:Address) {
+  await rpc('anvil_impersonateAccount',[account])
+}
+
+async function stopImpersonating(account:Address) {
+  await rpc('anvil_stopImpersonatingAccount',[account])
+}
+
 const integrationTest=enabled ? test : test.skip
 
 integrationTest('executes the exact Instapool V4 two-leg route on a loopback fork',async()=>{
   const requiredRepaymentAmount=amount('INSTA_FORK_REQUIRED_REPAYMENT_AMOUNT')
+  const smartAccount=address('INSTA_FORK_SMART_ACCOUNT')
   const simulation=buildTwoLegUniswapInstapoolSimulation({
     chainId:Number(requiredEnv('INSTA_FORK_CHAIN_ID')),
     connector:address('INSTA_FORK_CONNECTOR'),
-    smartAccount:address('INSTA_FORK_SMART_ACCOUNT'),
+    smartAccount,
     origin:address('INSTA_FORK_ORIGIN'),
     route:route(requiredRepaymentAmount),
   })
 
-  const result=await simulateOnLocalFork({
-    rpcUrl,
-    from:simulation.from,
-    to:simulation.to,
-    data:simulation.data,
-    token:address('INSTA_FORK_TOKEN_A'),
-    account:address('INSTA_FORK_SMART_ACCOUNT'),
-  })
+  await impersonate(smartAccount)
+  try {
+    const result=await simulateOnLocalFork({
+      rpcUrl,
+      from:simulation.from,
+      to:simulation.to,
+      data:simulation.data,
+      token:address('INSTA_FORK_TOKEN_A'),
+      account:smartAccount,
+    })
 
-  assert.equal(result.transactionHash.startsWith('0x'),true)
+    assert.equal(result.transactionHash.startsWith('0x'),true)
+  } finally {
+    await stopImpersonating(smartAccount)
+  }
 })
 
 integrationTest('under-repayment reverts atomically and restores the fork snapshot',async()=>{
@@ -92,21 +106,22 @@ integrationTest('under-repayment reverts atomically and restores the fork snapsh
   if (actualRepayment <= amount('INSTA_FORK_FLASH_AMOUNT')) throw new Error('INSTA_FORK_NO_FEE_FOR_NEGATIVE_CASE')
 
   const underRepayment=actualRepayment-1n
+  const smartAccount=address('INSTA_FORK_SMART_ACCOUNT')
   const simulation=buildTwoLegUniswapInstapoolSimulation({
     chainId:Number(requiredEnv('INSTA_FORK_CHAIN_ID')),
     connector:address('INSTA_FORK_CONNECTOR'),
-    smartAccount:address('INSTA_FORK_SMART_ACCOUNT'),
+    smartAccount,
     origin:address('INSTA_FORK_ORIGIN'),
     route:route(underRepayment),
   })
 
   const token=address('INSTA_FORK_TOKEN_A')
-  const account=address('INSTA_FORK_SMART_ACCOUNT')
   const block=BigInt(await rpc('eth_blockNumber',[]) as string)
-  const preBalance=await readTokenBalance({rpcUrl,token,account,blockNumber:block})
+  const preBalance=await readTokenBalance({rpcUrl,token,account:smartAccount,blockNumber:block})
   const snapshot=await rpc('evm_snapshot',[]) as string
   assert.ok(snapshot)
 
+  await impersonate(smartAccount)
   try {
     const txHash=await rpc('eth_sendTransaction',[{
       from:simulation.from,
@@ -116,10 +131,11 @@ integrationTest('under-repayment reverts atomically and restores the fork snapsh
     const receipt=await rpc('eth_getTransactionReceipt',[txHash]) as {status?:string}
     assert.equal(receipt.status,'0x0')
   } finally {
+    await stopImpersonating(smartAccount)
     assert.equal(await rpc('evm_revert',[snapshot]),true)
   }
 
   const restoredBlock=BigInt(await rpc('eth_blockNumber',[]) as string)
-  const restoredBalance=await readTokenBalance({rpcUrl,token,account,blockNumber:restoredBlock})
+  const restoredBalance=await readTokenBalance({rpcUrl,token,account:smartAccount,blockNumber:restoredBlock})
   assert.equal(restoredBalance,preBalance)
 })
