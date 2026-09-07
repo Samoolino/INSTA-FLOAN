@@ -34,6 +34,7 @@ export type RouteEvaluation = {
 
 const finiteNonNegative = (value:number) => Number.isFinite(value) && value >= 0
 const finitePositive = (value:number) => Number.isFinite(value) && value > 0
+const roundUsd = (value:number) => Number(value.toFixed(12))
 
 export function evaluateRoute(route: RouteCandidate, minNetProfitUsd: number, safetyReserveUsd: number): RouteEvaluation {
   if (route.legs.length < 2) throw new Error('ROUTE_REQUIRES_TWO_LEGS')
@@ -62,9 +63,9 @@ export function evaluateRoute(route: RouteCandidate, minNetProfitUsd: number, sa
   if (first.amountIn !== route.loanAmount) throw new Error('INITIAL_AMOUNT_MISMATCH')
   if (last.amountOut !== route.expectedFinalAmount) throw new Error('FINAL_AMOUNT_MISMATCH')
 
-  const swapCostUsd = route.legs.reduce((total, leg) => total + leg.feeUsd, 0)
-  const grossProfitUsd = route.expectedFinalUsd - route.loanAmountUsd
-  const netProfitUsd = grossProfitUsd - route.flashLoanFeeUsd - swapCostUsd - protocolFeeUsd - route.gasUsd - route.slippageUsd
+  const swapCostUsd = roundUsd(route.legs.reduce((total, leg) => total + leg.feeUsd, 0))
+  const grossProfitUsd = roundUsd(route.expectedFinalUsd - route.loanAmountUsd)
+  const netProfitUsd = roundUsd(grossProfitUsd - route.flashLoanFeeUsd - swapCostUsd - protocolFeeUsd - route.gasUsd - route.slippageUsd)
 
   const plan: ExecutionPlan = {
     chainId: route.chainId,
