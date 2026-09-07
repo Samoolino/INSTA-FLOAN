@@ -63,6 +63,15 @@ async function rpc(method:string, params:unknown[]) {
   return json.result
 }
 
+async function waitForReceipt(txHash:Hex, attempts=20, delayMs=50):Promise<{status?:string}> {
+  for (let attempt=0; attempt<attempts; attempt++) {
+    const receipt=await rpc('eth_getTransactionReceipt',[txHash]) as {status?:string} | null
+    if (receipt) return receipt
+    await new Promise(resolve=>setTimeout(resolve,delayMs))
+  }
+  throw new Error('TRANSACTION_RECEIPT_UNAVAILABLE')
+}
+
 async function impersonate(account:Address) {
   await rpc('anvil_impersonateAccount',[account])
 }
@@ -128,7 +137,7 @@ integrationTest('under-repayment reverts atomically and restores the fork snapsh
       to:simulation.to,
       data:simulation.data,
     }]) as Hex
-    const receipt=await rpc('eth_getTransactionReceipt',[txHash]) as {status?:string}
+    const receipt=await waitForReceipt(txHash)
     assert.equal(receipt.status,'0x0')
   } finally {
     await stopImpersonating(smartAccount)
