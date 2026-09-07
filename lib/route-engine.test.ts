@@ -14,8 +14,8 @@ const base:RouteCandidate={
   slippageUsd:0.2,
   protocolFeeUsd:0.1,
   legs:[
-    {venue:'dex-a',chainId:1,tokenIn:'A',tokenOut:'B',amountIn:1000000n,amountOut:1100000n},
-    {venue:'dex-b',chainId:1,tokenIn:'B',tokenOut:'A',amountIn:1100000n,amountOut:1010000n},
+    {venue:'dex-a',chainId:1,tokenIn:'A',tokenOut:'B',amountIn:1000000n,amountOut:1100000n,feeUsd:0},
+    {venue:'dex-b',chainId:1,tokenIn:'B',tokenOut:'A',amountIn:1100000n,amountOut:1010000n,feeUsd:0},
   ],
 }
 
