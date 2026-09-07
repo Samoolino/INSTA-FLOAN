@@ -1,3 +1,4 @@
+import {requireProtocolFeeUsd} from './protocol-fee'
 import {type RouteCandidate, type RouteLeg} from './route-engine'
 
 type QuoteLike = {
@@ -17,6 +18,8 @@ export type RoundTripConfig = {
   loanAmount: bigint
   loanAmountUsd: number
   flashLoanFeeUsd: number
+  /** Explicit Instadapp/protocol fee attributable to this route, in USD. */
+  protocolFeeUsd: number
   gasUsd: number
   slippageUsd: number
   finalAmountUsd: number
@@ -27,7 +30,7 @@ const same = (a:string,b:string) => a.toLowerCase() === b.toLowerCase()
 /**
  * Composes two already-verified on-chain quotes into a closed round-trip.
  * The second leg consumes the exact output of the first leg; no amount or
- * price is invented by this builder. DEX fees must be explicitly supplied.
+ * price is invented by this builder. DEX and protocol fees must be explicitly supplied.
  */
 export function buildRoundTrip(first:QuoteLike, second:QuoteLike, config:RoundTripConfig):RouteCandidate {
   if (first.chainId !== config.chainId || second.chainId !== config.chainId) throw new Error('CHAIN_MISMATCH')
@@ -39,6 +42,7 @@ export function buildRoundTrip(first:QuoteLike, second:QuoteLike, config:RoundTr
   if (second.amountOut <= 0n) throw new Error('INVALID_FINAL_AMOUNT')
   if (!Number.isFinite(first.feeUsd) || first.feeUsd < 0) throw new Error('INVALID_FIRST_LEG_FEE')
   if (!Number.isFinite(second.feeUsd) || second.feeUsd < 0) throw new Error('INVALID_SECOND_LEG_FEE')
+  const protocolFeeUsd = requireProtocolFeeUsd(config.protocolFeeUsd)
 
   const legs:RouteLeg[] = [
     {venue:first.venue,chainId:first.chainId,tokenIn:first.tokenIn,tokenOut:first.tokenOut,amountIn:first.amountIn,amountOut:first.amountOut,feeUsd:first.feeUsd},
@@ -53,6 +57,7 @@ export function buildRoundTrip(first:QuoteLike, second:QuoteLike, config:RoundTr
     expectedFinalAmount:second.amountOut,
     expectedFinalUsd:config.finalAmountUsd,
     flashLoanFeeUsd:config.flashLoanFeeUsd,
+    protocolFeeUsd,
     gasUsd:config.gasUsd,
     slippageUsd:config.slippageUsd,
     legs,
