@@ -1,5 +1,6 @@
 import {type ExecutionPlan} from './execution-plan'
 import {validatePreExecution, type PreExecutionDecision} from './pre-execution-gate'
+import {type AtomicRepaymentProof} from './atomic-repayment-proof'
 import {simulateCall, type SimulationRequest} from './route-simulation'
 
 export type PreExecutionOrchestrationRequest = {
@@ -8,6 +9,7 @@ export type PreExecutionOrchestrationRequest = {
   finalTokenAmount: bigint
   loanAmountToken: bigint
   feeAmountToken: bigint
+  atomicRepaymentProof: AtomicRepaymentProof
 }
 
 export type PreExecutionOrchestrationResult = PreExecutionDecision & {
@@ -30,6 +32,7 @@ export async function runPreExecutionOrchestration(
     feeAmountToken: request.feeAmountToken,
     simulationOk: simulation.ok,
     simulationError: simulation.ok ? undefined : simulation.error,
+    atomicRepaymentProof: request.atomicRepaymentProof,
   })
 
   return { ...decision, simulation }
