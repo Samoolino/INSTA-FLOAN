@@ -16,7 +16,25 @@ test('unconfigured deployment remains fail-closed', () => {
 })
 
 test('unsupported chain remains fail-closed', () => {
-  const deployment = getInstapoolV4Deployment(56)
-  assert.equal(deployment.connector, undefined)
-  assert.equal(deployment.verified, false)
+  assert.throws(() => assertInstapoolV4Deployment(56), /INSTAPOOL_V4_UNSUPPORTED_CHAIN/)
+})
+
+test('verification is chain-specific rather than globally shared', () => {
+  const originalAddress = process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+  const originalEth = process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+  const originalArb = process.env.INSTAPOOL_V4_VERIFIED_ARBITRUM
+  process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM = '0x0000000000000000000000000000000000000001'
+  process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM = 'true'
+  process.env.INSTAPOOL_V4_VERIFIED_ARBITRUM = 'true'
+  try {
+    assert.equal(getInstapoolV4Deployment(1).verified, true)
+    assert.equal(getInstapoolV4Deployment(42161).verified, false)
+  } finally {
+    if (originalAddress === undefined) delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+    else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM = originalAddress
+    if (originalEth === undefined) delete process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+    else process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM = originalEth
+    if (originalArb === undefined) delete process.env.INSTAPOOL_V4_VERIFIED_ARBITRUM
+    else process.env.INSTAPOOL_V4_VERIFIED_ARBITRUM = originalArb
+  }
 })
