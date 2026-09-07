@@ -10,6 +10,7 @@ export type SimulationRequest = {
 export type SimulationResult = {
   ok: true
   blockNumber: bigint
+  returnData: `0x${string}`
   gasEstimate?: bigint
 } | {
   ok: false
@@ -45,7 +46,7 @@ export async function simulateCall(request:SimulationRequest):Promise<Simulation
       data: request.data,
       ...(request.value !== undefined ? {value:`0x${request.value.toString(16)}`} : {}),
     }
-    await rpc(request.rpcUrl,'eth_call',[call,`0x${blockNumber.toString(16)}`])
+    const returnData = await rpc(request.rpcUrl,'eth_call',[call,`0x${blockNumber.toString(16)}`]) as `0x${string}`
     let gasEstimate:bigint|undefined
     try {
       gasEstimate = BigInt(await rpc(request.rpcUrl,'eth_estimateGas',[call]))
@@ -54,7 +55,7 @@ export async function simulateCall(request:SimulationRequest):Promise<Simulation
     }
     const finalBlock = BigInt(await rpc(request.rpcUrl,'eth_blockNumber',[]))
     if (finalBlock !== blockNumber) return {ok:false,blockNumber:finalBlock,error:'BLOCK_CHANGED_AFTER_SIMULATION'}
-    return {ok:true,blockNumber,gasEstimate}
+    return {ok:true,blockNumber,returnData,gasEstimate}
   } catch (error) {
     return {ok:false,error:error instanceof Error ? error.message : 'SIMULATION_FAILED'}
   }
