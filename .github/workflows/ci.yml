@@ -22,8 +22,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Unit tests
+      - name: Test
         run: npm test
+        env:
+          LIVE_EXECUTION: "false"
 
       - name: Type-check and build
         run: npm run build
