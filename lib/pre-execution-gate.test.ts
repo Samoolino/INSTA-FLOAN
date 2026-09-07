@@ -1,0 +1,41 @@
+import {strict as assert} from 'node:assert'
+import {test} from 'node:test'
+import {validatePreExecution} from './pre-execution-gate'
+
+const plan = {
+  chainId:1,
+  loanAsset:'0x0000000000000000000000000000000000000001',
+  loanAmountUsd:1000,
+  flashLoanFeeUsd:1,
+  swapCostUsd:0,
+  gasUsd:2,
+  slippageUsd:1,
+  grossProfitUsd:20,
+  netProfitUsd:16,
+  minNetProfitUsd:5,
+  safetyReserveUsd:2,
+}
+
+test('all gates passing authorizes pre-execution only',()=>{
+  const result=validatePreExecution({plan,finalTokenAmount:1010n,loanAmountToken:1000n,feeAmountToken:5n,simulationOk:true})
+  assert.equal(result.authorized,true)
+  assert.deepEqual(result.reasons,[])
+})
+
+test('repayment failure blocks authorization',()=>{
+  const result=validatePreExecution({plan,finalTokenAmount:1004n,loanAmountToken:1000n,feeAmountToken:5n,simulationOk:true})
+  assert.equal(result.authorized,false)
+  assert.ok(result.reasons.includes('INSUFFICIENT_TOKEN_REPAYMENT'))
+})
+
+test('simulation failure blocks authorization',()=>{
+  const result=validatePreExecution({plan,finalTokenAmount:1010n,loanAmountToken:1000n,feeAmountToken:5n,simulationOk:false,simulationError:'REVERT'})
+  assert.equal(result.authorized,false)
+  assert.ok(result.reasons.includes('SIMULATION_FAILED:REVERT'))
+})
+
+test('profit gate failure blocks authorization',()=>{
+  const result=validatePreExecution({plan:{...plan,netProfitUsd:3,minNetProfitUsd:5},finalTokenAmount:1010n,loanAmountToken:1000n,feeAmountToken:5n,simulationOk:true})
+  assert.equal(result.authorized,false)
+  assert.ok(result.reasons.includes('BELOW_MIN_NET_PROFIT'))
+})
