@@ -2,6 +2,7 @@ import {type Address, type Hex} from 'viem'
 import {type ExecutionPlan} from './execution-plan'
 import {validatePreExecution, type PreExecutionDecision} from './pre-execution-gate'
 import {simulateInstadappCast, type InstadappSimulationResult} from './instadapp-simulation'
+import {type AtomicRepaymentProof} from './atomic-repayment-proof'
 
 export type InstadappPreExecutionRequest = {
   plan: ExecutionPlan
@@ -14,6 +15,7 @@ export type InstadappPreExecutionRequest = {
   finalTokenAmount: bigint
   loanAmountToken: bigint
   feeAmountToken: bigint
+  atomicRepaymentProof: AtomicRepaymentProof
 }
 
 export type InstadappPreExecutionResult = PreExecutionDecision & {
@@ -22,11 +24,11 @@ export type InstadappPreExecutionResult = PreExecutionDecision & {
 
 /**
  * Executes the complete Instadapp cast simulation boundary before the existing
- * repayment, profit, and safety authorization gates.
+ * repayment, profit, safety, and atomic-repayment-proof authorization gates.
  *
  * This remains authorization-only: it never signs, submits, or broadcasts.
- * The caller must provide already-verified target calldata. No flash-loan
- * connector/module address or ABI is assumed by this orchestration layer.
+ * The caller must provide already-verified target calldata and an independently
+ * verified lender/connector repayment-enforcement proof.
  */
 export async function runInstadappPreExecution(
   request: InstadappPreExecutionRequest,
@@ -47,6 +49,7 @@ export async function runInstadappPreExecution(
     feeAmountToken: request.feeAmountToken,
     simulationOk: instadapp.simulation.ok,
     simulationError: instadapp.simulation.ok ? undefined : instadapp.simulation.error,
+    atomicRepaymentProof: request.atomicRepaymentProof,
   })
 
   return { ...decision, instadapp }
