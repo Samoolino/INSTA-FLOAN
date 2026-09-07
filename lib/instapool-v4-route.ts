@@ -42,19 +42,19 @@ function assertSameAsset(left: Address, right: Address, error: string) {
 
 export function buildTwoLegUniswapRouteData(route: TwoLegUniswapRoute): {targets: string[]; callDatas: Hex[]} {
   if (route.flash.amount <= 0n) throw new Error('INVALID_FLASH_AMOUNT')
+  if (route.legOne.sellAmt !== route.flash.amount) throw new Error('LEG_ONE_AMOUNT_MUST_EQUAL_LOAN')
+  if (route.legTwo.sellAmt <= 0n) throw new Error('INVALID_LEG_TWO_AMOUNT_FALLBACK')
   assertSameAsset(route.legOne.sellAddr, route.flash.token, 'LEG_ONE_LOAN_ASSET_MISMATCH')
   assertSameAsset(route.legTwo.buyAddr, route.flash.token, 'LEG_TWO_FINAL_ASSET_MISMATCH')
   assertSameAsset(route.legOne.buyAddr, route.legTwo.sellAddr, 'LEG_TOKEN_CONTINUITY_MISMATCH')
 
   const legOne = encodeUniswapV2SellSpell({
     ...route.legOne,
-    sellAmt: route.legOne.sellAmt,
     getId: ROUTE_MEMORY_IDS.loan,
     setId: ROUTE_MEMORY_IDS.legOneOutput,
   })
   const legTwo = encodeUniswapV2SellSpell({
     ...route.legTwo,
-    sellAmt: route.legTwo.sellAmt,
     getId: ROUTE_MEMORY_IDS.legOneOutput,
     setId: ROUTE_MEMORY_IDS.legTwoOutput,
   })
@@ -72,8 +72,8 @@ export function buildTwoLegUniswapRouteData(route: TwoLegUniswapRoute): {targets
 
 /**
  * Build the complete outer Instapool V4 simulation call.
- * The amount assertions here are conservative: the actual intermediate
- * amounts must still be proven by forked eth_call before authorization.
+ * The actual intermediate amounts and repayment sufficiency must still be
+ * proven by forked eth_call before authorization.
  */
 export function buildTwoLegUniswapInstapoolSimulation(input: {
   chainId: number
@@ -82,9 +82,6 @@ export function buildTwoLegUniswapInstapoolSimulation(input: {
   origin: Address
   route: TwoLegUniswapRoute
 }): ReturnType<typeof buildInstapoolV4FlashBorrowCallForSimulation> {
-  if (input.route.legOne.sellAmt !== input.route.flash.amount) throw new Error('LEG_ONE_AMOUNT_MUST_EQUAL_LOAN')
-  if (input.route.legTwo.sellAmt <= 0n) throw new Error('INVALID_LEG_TWO_AMOUNT')
-
   const {targets, callDatas} = buildTwoLegUniswapRouteData(input.route)
   const flash: InstapoolV4FlashBorrow = {
     ...input.route.flash,
