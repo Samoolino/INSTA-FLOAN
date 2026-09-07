@@ -341,12 +341,15 @@ Production execution requires all of the following:
 - valid Smart Account configuration;
 - sufficient liquidity;
 - successful pre-trade simulation;
-- repayment mathematically guaranteed by the transaction path;
+- **independently verified atomic repayment enforcement by the selected lender/connector**;
+- the required repayment amount is encoded in the transaction path;
 - gas and slippage within limits;
 - net profit above configured threshold;
 - risk limits satisfied;
 - execution kill switch disabled;
 - user authorization for the transaction.
+
+A successful simulation alone is **not** accepted as repayment proof. A post-transaction token balance is also not accepted as proof because an atomic flash-loan route may repay the lender before the final balance is observed. The repayment-enforcement property must be explicitly verified for the exact lender/connector integration before it can participate in any future live authorization decision.
 
 If any gate fails, the system does not trade.
 
@@ -457,12 +460,18 @@ config/
 7. **No automatic bypass of wallet authorization.**
 8. **No assumption that a protocol is available on every chain.**
 9. **No production execution while contract/address validation is incomplete.**
-10. **Target attainment stops when the target is reached or when risk conditions invalidate further execution.**
+10. **No repayment proof from a caller-supplied final balance.**
+11. **No live authorization unless the exact lender/connector repayment-enforcement semantics have been independently verified.**
+12. **Target attainment stops when the target is reached or when risk conditions invalidate further execution.**
 
 ---
 
 ## 14. Current status
 
-The repository currently represents the simulation-first application foundation. The next implementation milestone is to connect the wallet provider abstraction to the live UI, implement SIWE-style wallet authentication, connect the verified Instadapp Developer Platform execution primitives, and then build the real route/simulation engine.
+The repository currently represents the simulation-first application foundation. The local-fork simulator now requires successful transaction receipts and explicit snapshot restoration, while repayment proof is fail-closed unless lender/connector atomic-revert enforcement has been independently verified.
+
+The pinned Instadapp Instapool V4 connector source confirms that `flashPayback` reads the repayment amount from Instamemory and performs a `safeTransfer` to the configured InstaPool address. That verifies the connector-side transfer mechanism, but it does **not by itself establish the complete lender-side repayment/revert invariant**. The latter remains a required verification gate before live authorization.
+
+The next implementation milestone is therefore to build an explicit fork-pre-execution path around the verified Instadapp route envelope, validate the exact lender-side atomic repayment behavior on a controlled fork, and only then consider any live authorization layer.
 
 **Never paste an active private key, seed phrase, or production RPC credential into source files, issues, README files, or commits.**
