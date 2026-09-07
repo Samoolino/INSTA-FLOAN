@@ -1,3 +1,4 @@
+import {requireProtocolFeeUsd} from './protocol-fee'
 import {type ExecutionPlan} from './execution-plan'
 
 export type RouteLeg = {
@@ -19,6 +20,7 @@ export type RouteCandidate = {
   flashLoanFeeUsd: number
   gasUsd: number
   slippageUsd: number
+  protocolFeeUsd?: number
   legs: RouteLeg[]
 }
 
@@ -39,6 +41,7 @@ export function evaluateRoute(route: RouteCandidate, minNetProfitUsd: number, sa
   if (route.expectedFinalAmount <= 0n) throw new Error('INVALID_FINAL_AMOUNT')
   if (!finitePositive(route.expectedFinalUsd) || !finitePositive(route.loanAmountUsd)) throw new Error('INVALID_USD_NOTIONAL')
   if (!finiteNonNegative(route.flashLoanFeeUsd) || !finiteNonNegative(route.gasUsd) || !finiteNonNegative(route.slippageUsd)) throw new Error('INVALID_ROUTE_COST')
+  const protocolFeeUsd = requireProtocolFeeUsd(route.protocolFeeUsd)
   if (!finitePositive(minNetProfitUsd)) throw new Error('INVALID_MIN_NET_PROFIT')
   if (!finiteNonNegative(safetyReserveUsd)) throw new Error('INVALID_SAFETY_RESERVE')
 
@@ -56,7 +59,7 @@ export function evaluateRoute(route: RouteCandidate, minNetProfitUsd: number, sa
 
   const swapCostUsd = 0
   const grossProfitUsd = route.expectedFinalUsd - route.loanAmountUsd
-  const netProfitUsd = grossProfitUsd - route.flashLoanFeeUsd - swapCostUsd - route.gasUsd - route.slippageUsd
+  const netProfitUsd = grossProfitUsd - route.flashLoanFeeUsd - swapCostUsd - protocolFeeUsd - route.gasUsd - route.slippageUsd
 
   const plan: ExecutionPlan = {
     chainId: route.chainId,
@@ -64,6 +67,7 @@ export function evaluateRoute(route: RouteCandidate, minNetProfitUsd: number, sa
     loanAmountUsd: route.loanAmountUsd,
     flashLoanFeeUsd: route.flashLoanFeeUsd,
     swapCostUsd,
+    protocolFeeUsd,
     gasUsd: route.gasUsd,
     slippageUsd: route.slippageUsd,
     grossProfitUsd,
