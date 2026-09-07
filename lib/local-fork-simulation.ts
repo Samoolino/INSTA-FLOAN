@@ -41,12 +41,26 @@ async function rpc(rpcUrl: string, method: string, params: unknown[]) {
   return json.result
 }
 
+function requireSnapshotId(value: unknown): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error('INVALID_SNAPSHOT_ID')
+  }
+  return value
+}
+
+function requireRevertSuccess(value: unknown) {
+  if (value !== true) throw new Error('SNAPSHOT_REVERT_FAILED')
+}
+
 /**
  * Executes the exact route on a loopback Anvil-style fork and observes the
  * resulting ERC-20 balance. This deliberately does not infer repayment from
  * the post-transaction balance: a successful atomic route may already have
- * repaid the loan before the final balance is observed. A future instrumented
- * route can expose a pre-payback balance for validateSimulatedRepayment.
+ * repaid the loan before the final balance is observed.
+ *
+ * This function is strictly for local fork simulation. It requires a valid
+ * snapshot and a confirmed successful snapshot revert so simulated state
+ * cannot silently persist after the test.
  */
 export async function simulateOnLocalFork(request: LocalForkSimulationRequest): Promise<LocalForkSimulationResult> {
   assertLocalRpc(request.rpcUrl)
@@ -59,7 +73,8 @@ export async function simulateOnLocalFork(request: LocalForkSimulationRequest): 
     blockNumber,
   })
 
-  const snapshot = await rpc(request.rpcUrl, 'evm_snapshot', [])
+  const snapshot = requireSnapshotId(await rpc(request.rpcUrl, 'evm_snapshot', []))
+  let simulationError: unknown
   try {
     const txHash = await rpc(request.rpcUrl, 'eth_sendTransaction', [{
       from: request.from,
@@ -81,7 +96,19 @@ export async function simulateOnLocalFork(request: LocalForkSimulationRequest): 
     })
 
     return {blockNumber, preBalance, postBalance, transactionHash: txHash}
+  } catch (error) {
+    simulationError = error
+    throw error
   } finally {
-    await rpc(request.rpcUrl, 'evm_revert', [snapshot])
+    try {
+      requireRevertSuccess(await rpc(request.rpcUrl, 'evm_revert', [snapshot]))
+    } catch (revertError) {
+      if (simulationError !== undefined) {
+        throw new Error(
+          `SIMULATION_AND_SNAPSHOT_REVERT_FAILED:${simulationError instanceof Error ? simulationError.message : String(simulationError)}:${revertError instanceof Error ? revertError.message : String(revertError)}`,
+        )
+      }
+      throw revertError
+    }
   }
 }
