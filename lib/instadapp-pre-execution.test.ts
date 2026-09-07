@@ -79,7 +79,7 @@ test('pre-execution gate directly blocks authorization without verified lender e
     },
   })
 
-  assert.equal(result.execution.authorized,true)
+  assert.equal(result.execution.authorized,false)
   assert.equal(result.repayment.sufficient,true)
   assert.equal(result.atomicRepayment.verified,false)
   assert.equal(result.authorized,false)
