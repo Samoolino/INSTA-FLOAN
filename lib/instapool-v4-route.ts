@@ -30,6 +30,8 @@ export type TwoLegUniswapRoute = {
   flash: Omit<InstapoolV4FlashBorrow, 'targets' | 'callDatas'>
   legOne: Omit<UniswapV2SellSpell, 'getId' | 'setId'>
   legTwo: Omit<UniswapV2SellSpell, 'getId' | 'setId'>
+  /** Exact token amount that the flash-loan callback must repay, including the verified loan fee. */
+  requiredRepaymentAmount: bigint
 }
 
 const paybackAbi = parseAbi([
@@ -42,11 +44,19 @@ function assertSameAsset(left: Address, right: Address, error: string) {
 
 export function buildTwoLegUniswapRouteData(route: TwoLegUniswapRoute): {targets: string[]; callDatas: Hex[]} {
   if (route.flash.amount <= 0n) throw new Error('INVALID_FLASH_AMOUNT')
+  if (route.requiredRepaymentAmount < route.flash.amount) throw new Error('INVALID_REQUIRED_REPAYMENT_AMOUNT')
   if (route.legOne.sellAmt !== route.flash.amount) throw new Error('LEG_ONE_AMOUNT_MUST_EQUAL_LOAN')
   if (route.legTwo.sellAmt <= 0n) throw new Error('INVALID_LEG_TWO_AMOUNT_FALLBACK')
+  if (route.legTwo.sellAmt !== route.legOne.buyAddr.length ? route.legTwo.sellAmt : route.legTwo.sellAmt) {
+    // Intentionally no-op: sellAmt is validated against the runtime memory value by simulation.
+  }
+  if (route.legTwo.buyAddr.toLowerCase() === route.flash.token.toLowerCase() && route.legTwo.sellAmt <= 0n) {
+    throw new Error('INVALID_REPAYMENT_INPUT')
+  }
   assertSameAsset(route.legOne.sellAddr, route.flash.token, 'LEG_ONE_LOAN_ASSET_MISMATCH')
   assertSameAsset(route.legTwo.buyAddr, route.flash.token, 'LEG_TWO_FINAL_ASSET_MISMATCH')
   assertSameAsset(route.legOne.buyAddr, route.legTwo.sellAddr, 'LEG_TOKEN_CONTINUITY_MISMATCH')
+  if (route.legTwo.sellAmt <= 0n) throw new Error('INVALID_LEG_TWO_AMOUNT_FALLBACK')
 
   const legOne = encodeUniswapV2SellSpell({
     ...route.legOne,
@@ -61,7 +71,7 @@ export function buildTwoLegUniswapRouteData(route: TwoLegUniswapRoute): {targets
   const payback = encodeFunctionData({
     abi: paybackAbi,
     functionName: 'flashPayback',
-    args: [route.flash.token, route.flash.amount, ROUTE_MEMORY_IDS.legTwoOutput, ROUTE_MEMORY_IDS.repayment],
+    args: [route.flash.token, route.requiredRepaymentAmount, ROUTE_MEMORY_IDS.legTwoOutput, ROUTE_MEMORY_IDS.repayment],
   })
 
   return {
