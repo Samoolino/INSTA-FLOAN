@@ -10,8 +10,8 @@ const AMOUNT = 1_000_000n
 const baseRoute = () => ({
   flash: {token: TOKEN_A, amount: AMOUNT, route: 0n},
   legOne: {buyAddr: TOKEN_B, sellAddr: TOKEN_A, sellAmt: AMOUNT, unitAmt: 900_000n},
-  // sellAmt is the fallback; the connector resolves the runtime amount from memory ID 1.
   legTwo: {buyAddr: TOKEN_A, sellAddr: TOKEN_B, sellAmt: 1n, unitAmt: 900_000n},
+  expectedFinalAmount: AMOUNT + 10_000n,
   requiredRepaymentAmount: AMOUNT + 10_000n,
 })
 
@@ -63,5 +63,11 @@ describe('Instapool V4 two-leg route', () => {
     assert.throws(() => buildTwoLegUniswapRouteData({
       ...baseRoute(), requiredRepaymentAmount: AMOUNT - 1n,
     }), /INVALID_REQUIRED_REPAYMENT_AMOUNT/)
+  })
+
+  it('rejects a quote that cannot cover required repayment', () => {
+    assert.throws(() => buildTwoLegUniswapRouteData({
+      ...baseRoute(), expectedFinalAmount: AMOUNT + 9_999n,
+    }), /EXPECTED_REPAYMENT_SHORTFALL/)
   })
 })
