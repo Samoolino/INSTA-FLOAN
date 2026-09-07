@@ -1,6 +1,6 @@
 import {strict as assert} from 'node:assert'
 import {test} from 'node:test'
-import {buildInstapoolV4FlashBorrowCall, buildVerifiedInstapoolV4FlashBorrowCall, encodeInstapoolV4FlashData, assertInstapoolV4DeploymentVerified} from './instapool-v4'
+import {buildInstapoolV4FlashBorrowCallForSimulation, buildVerifiedInstapoolV4FlashBorrowCall, encodeInstapoolV4FlashData, assertInstapoolV4DeploymentVerified} from './instapool-v4'
 
 const account='0x0000000000000000000000000000000000000001' as `0x${string}`
 const connector='0x0000000000000000000000000000000000000002' as `0x${string}`
@@ -31,13 +31,13 @@ test('Instapool v4 rejects mismatched target/data arrays',()=>assert.throws(()=>
 
 test('Instapool v4 rejects empty flash amount',()=>assert.throws(()=>encodeInstapoolV4FlashData({...valid.flash,amount:0n}),/INVALID_FLASH_AMOUNT/))
 
-test('Instapool v4 builds only with the chain registry connector',()=>{
+test('Instapool v4 simulation builder requires the chain registry connector',()=>{
   const originalAddress=process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
   const originalVerified=process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
   process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=connector
   process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM='true'
   try {
-    const call=buildInstapoolV4FlashBorrowCall(valid)
+    const call=buildInstapoolV4FlashBorrowCallForSimulation(valid)
     assert.equal(call.from,account)
     assert.equal(call.to,account)
     assert.ok(call.data.startsWith('0x'))
@@ -79,7 +79,7 @@ test('Instapool v4 rejects connector mismatch against the verified chain registr
   process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM='0x0000000000000000000000000000000000000009'
   process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM='true'
   try {
-    assert.throws(()=>buildInstapoolV4FlashBorrowCall(valid),/INSTAPOOL_V4_CONNECTOR_MISMATCH/)
+    assert.throws(()=>buildInstapoolV4FlashBorrowCallForSimulation(valid),/INSTAPOOL_V4_CONNECTOR_MISMATCH/)
   } finally {
     if(originalAddress===undefined) delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
     else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=originalAddress
@@ -94,7 +94,7 @@ test('Instapool v4 remains fail-closed when the chain deployment is unverified',
   delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
   process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM='true'
   try {
-    assert.throws(()=>buildInstapoolV4FlashBorrowCall(valid),/INSTAPOOL_V4_CONNECTOR_NOT_CONFIGURED|INSTAPOOL_V4_DEPLOYMENT_NOT_VERIFIED/)
+    assert.throws(()=>buildInstapoolV4FlashBorrowCallForSimulation(valid),/INSTAPOOL_V4_CONNECTOR_NOT_CONFIGURED|INSTAPOOL_V4_DEPLOYMENT_NOT_VERIFIED/)
   } finally {
     if(originalAddress===undefined) delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
     else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=originalAddress
