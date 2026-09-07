@@ -12,6 +12,7 @@ const plan={
   loanAsset:'0x0000000000000000000000000000000000000010',
   loanAmountUsd:100,
   flashLoanFeeUsd:0.1,
+  protocolFeeUsd:0,
   swapCostUsd:0,
   gasUsd:1,
   slippageUsd:0.5,
@@ -79,7 +80,7 @@ test('pre-execution gate directly blocks authorization without verified lender e
     },
   })
 
-  assert.equal(result.execution.authorized,false)
+  assert.equal(result.execution.executable,true)
   assert.equal(result.repayment.sufficient,true)
   assert.equal(result.atomicRepayment.verified,false)
   assert.equal(result.authorized,false)
