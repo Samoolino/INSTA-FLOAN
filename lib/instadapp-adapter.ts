@@ -1,20 +1,16 @@
 import {encodeFunctionData, parseAbi, type Address, type Hex} from 'viem'
 
 /**
- * Instadapp DSL simulation boundary.
+ * Instadapp DSA cast boundary.
  *
- * Official Instadapp documentation describes Smart Account execution through
- * `cast()` and extension dispatch via the account fallback. Historical official
- * Instadapp interfaces show the concrete cast shape as:
- *   cast(address[] targets, bytes[] datas, address origin)
- *
- * We use that ABI only for calldata construction. Flash-loan connector/module
- * selection remains configuration-driven and is NOT assumed from historical
- * connector addresses.
+ * Instapool V4's flashBorrowAndCast decodes its nested `data` as
+ * (string[] targets, bytes[] callDatas) and forwards those names to the
+ * Smart Account's cast(string[],bytes[],address). The target is therefore a
+ * connector name, not an EVM connector address.
  */
 export type InstadappCastCall = {
   smartAccount: Address
-  targets: Address[]
+  targets: string[]
   datas: Hex[]
   origin: Address
 }
@@ -26,14 +22,14 @@ export type InstadappSimulationCall = {
 }
 
 const castAbi = parseAbi([
-  'function cast(address[] _targets, bytes[] _datas, address _origin) payable returns (bytes32[] responses)',
+  'function cast(string[] _targets, bytes[] _datas, address _origin) payable returns (bytes32[] responses)',
 ])
 
 export function buildInstadappCastCall(input: InstadappCastCall): InstadappSimulationCall {
   if (!input.smartAccount) throw new Error('MISSING_SMART_ACCOUNT')
   if (input.targets.length === 0) throw new Error('MISSING_CAST_TARGETS')
   if (input.targets.length !== input.datas.length) throw new Error('CAST_ARRAY_LENGTH_MISMATCH')
-  if (input.targets.some(target => !target)) throw new Error('INVALID_CAST_TARGET')
+  if (input.targets.some(target => target.length === 0)) throw new Error('INVALID_CAST_TARGET')
   if (input.datas.some(data => !data || data === '0x')) throw new Error('MISSING_CAST_DATA')
   if (!input.origin) throw new Error('MISSING_CAST_ORIGIN')
 
