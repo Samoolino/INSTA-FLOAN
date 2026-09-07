@@ -3,12 +3,15 @@ import {INSTAPOOL_V4_SOURCE, type SupportedInstapoolChain} from './instapool-v4-
 
 type JsonRpcResponse = {result?: string; error?: {message?: string}}
 
-const RPC_BY_CHAIN: Record<SupportedInstapoolChain, string | undefined> = {
-  1: process.env.ETH_RPC_URL,
-  42161: process.env.ARB_RPC_URL,
-  10: process.env.OPTIMISM_RPC_URL,
-  137: process.env.POLYGON_RPC_URL,
-  43114: process.env.AVALANCHE_RPC_URL,
+function rpcForChain(chainId: SupportedInstapoolChain): string | undefined {
+  const rpcByChain: Record<SupportedInstapoolChain, string | undefined> = {
+    1: process.env.ETH_RPC_URL,
+    42161: process.env.ARB_RPC_URL,
+    10: process.env.OPTIMISM_RPC_URL,
+    137: process.env.POLYGON_RPC_URL,
+    43114: process.env.AVALANCHE_RPC_URL,
+  }
+  return rpcByChain[chainId]
 }
 
 const hexCode = (value: string) => value === '0x' || value === '0x0' ? '' : value
@@ -47,7 +50,7 @@ export async function verifyInstapoolV4Bytecode(
   chainId: SupportedInstapoolChain,
   connector: string,
 ): Promise<InstapoolV4OnchainVerification> {
-  const rpcUrl = RPC_BY_CHAIN[chainId]
+  const rpcUrl = rpcForChain(chainId)
   const normalized = isAddress(connector) ? getAddress(connector) : undefined
   if (!normalized) {
     return {chainId, connector: connector as Address, rpcConfigured: Boolean(rpcUrl), hasBytecode: false, authorized: false, reason: 'INVALID_CONNECTOR_ADDRESS', sourceCommit: INSTAPOOL_V4_SOURCE.commit}
