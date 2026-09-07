@@ -1,9 +1,12 @@
+import {requireProtocolFeeUsd} from './protocol-fee'
+
 export type ExecutionPlan = {
   chainId: number
   loanAsset: string
   loanAmountUsd: number
   flashLoanFeeUsd: number
   swapCostUsd: number
+  protocolFeeUsd?: number
   gasUsd: number
   slippageUsd: number
   grossProfitUsd: number
@@ -28,6 +31,8 @@ export function validateExecutionPlan(plan: ExecutionPlan): ExecutionDecision {
   if (!finitePositive(plan.loanAmountUsd)) reasons.push('INVALID_LOAN_AMOUNT')
   if (!finiteNonNegative(plan.flashLoanFeeUsd)) reasons.push('INVALID_FLASH_LOAN_FEE')
   if (!finiteNonNegative(plan.swapCostUsd)) reasons.push('INVALID_SWAP_COST')
+  if (plan.protocolFeeUsd === undefined) reasons.push('PROTOCOL_FEE_NOT_CONFIGURED')
+  else if (!finiteNonNegative(plan.protocolFeeUsd)) reasons.push('INVALID_PROTOCOL_FEE_USD')
   if (!finiteNonNegative(plan.gasUsd)) reasons.push('INVALID_GAS')
   if (!finiteNonNegative(plan.slippageUsd)) reasons.push('INVALID_SLIPPAGE')
   if (!finiteNonNegative(plan.grossProfitUsd)) reasons.push('INVALID_GROSS_PROFIT')
@@ -35,7 +40,8 @@ export function validateExecutionPlan(plan: ExecutionPlan): ExecutionDecision {
   if (!finiteNonNegative(plan.safetyReserveUsd)) reasons.push('INVALID_SAFETY_RESERVE')
 
   const repaymentUsd = plan.loanAmountUsd + plan.flashLoanFeeUsd
-  const modeledCosts = plan.flashLoanFeeUsd + plan.swapCostUsd + plan.gasUsd + plan.slippageUsd
+  const protocolFeeUsd = plan.protocolFeeUsd === undefined ? 0 : requireProtocolFeeUsd(plan.protocolFeeUsd)
+  const modeledCosts = plan.flashLoanFeeUsd + plan.swapCostUsd + protocolFeeUsd + plan.gasUsd + plan.slippageUsd
   const modeledNet = plan.grossProfitUsd - modeledCosts
 
   if (Math.abs(modeledNet - plan.netProfitUsd) > 0.01) reasons.push('NET_PROFIT_MISMATCH')
