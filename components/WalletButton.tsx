@@ -39,8 +39,8 @@ export default function WalletButton(){
   </div>
 
   if(importedAddress) return <div className="walletArea">
-    <div className="walletBadge"><span className="dot"/> KEY IMPORTED · {importedAddress.slice(0,6)}…{importedAddress.slice(-4)}</div>
-    <small className="muted">Private key is memory-only and is never persisted or sent to the server.</small>
+    <div className="walletBadge"><span className="dot"/> LOCAL KEY · {importedAddress.slice(0,6)}…{importedAddress.slice(-4)}</div>
+    <small className="muted">Local signer preview only. The key is memory-only, never persisted or sent to the server, and cannot enable live execution from this UI.</small>
     <button className="secondary" onClick={()=>setImportedAddress(undefined)}>REMOVE KEY</button>
   </div>
 
@@ -50,7 +50,7 @@ export default function WalletButton(){
     {showImport && <div className="walletImport">
       <input aria-label="Private key" type="password" autoComplete="off" spellCheck={false} placeholder="0x… 32-byte private key" value={privateKey} onChange={e=>setPrivateKey(e.target.value)}/>
       <button className="primary" onClick={importKey}>IMPORT IN MEMORY</button>
-      <small className="muted">Advanced option. Never paste a seed phrase. The key is not stored in localStorage, cookies, GitHub, or the API.</small>
+      <small className="muted">Advanced local-only signer preview. Never paste a seed phrase. The key is not stored in localStorage, cookies, GitHub, or the API. Live transaction signing is not enabled by this control.</small>
       {importError && <small className="error">{importError}</small>}
     </div>}
     {error && <small className="error">{error.message}</small>}
