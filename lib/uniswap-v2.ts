@@ -1,4 +1,4 @@
-import {type Hex, type Address, encodeFunctionData, parseAbi, createPublicClient, http} from 'viem'
+import {type Address, parseAbi, createPublicClient, http} from 'viem'
 import {mainnet, arbitrum, base, bsc, type Chain} from 'viem/chains'
 
 export type V2QuoteConfig = {
