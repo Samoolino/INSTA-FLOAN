@@ -5,14 +5,15 @@ import {assertInstapoolV4IdentityMatched, verifyInstapoolV4Bytecode} from './ins
 
 /**
  * Verified against Instadapp's dsa-connectors Instapool-v4 source:
- * flashBorrowAndCast(address,uint256,uint256,bytes,bytes)
+ * flashBorrowAndCast(address,uint256,uint256,bytes,bytes).
  *
- * The connector decodes `data` as (string[] targets, bytes[] callDatas)
- * and internally invokes the Smart Account cast(string[],bytes[],address).
- *
- * The connector is selected from the chain-specific deployment registry.
- * Arbitrary connector addresses are rejected at this boundary.
+ * The connector decodes nested `data` as (string[] targets, bytes[] callDatas)
+ * and internally invokes cast(string[],bytes[],address). The outer DSA cast
+ * therefore uses the connector's registered name, while the deployment
+ * registry address is retained solely for bytecode identity verification.
  */
+export const INSTAPOOL_V4_CONNECTOR_NAME = 'Instapool-v4' as const
+
 export type InstapoolV4FlashBorrow = {
   token: Address
   amount: bigint
@@ -48,20 +49,15 @@ function validate(input: InstapoolV4FlashBorrow) {
 export function encodeInstapoolV4FlashData(input: InstapoolV4FlashBorrow): Hex {
   validate(input)
   return encodeAbiParameters(
-    [
-      {type: 'string[]'},
-      {type: 'bytes[]'},
-    ],
+    [{type: 'string[]'}, {type: 'bytes[]'}],
     [input.targets, input.callDatas],
   )
 }
 
 /**
  * Production-facing construction boundary.
- *
- * A live chain bytecode identity check is mandatory before any Instapool V4
- * call envelope is constructed. The function intentionally remains
- * simulation-only because this module never signs or submits transactions.
+ * Live bytecode identity verification is mandatory. This module remains
+ * simulation-only: it never signs or submits a transaction.
  */
 export async function buildVerifiedInstapoolV4FlashBorrowCall(input: InstapoolV4Envelope): Promise<InstapoolV4SimulationCall> {
   const verifiedConnector = assertInstapoolV4Deployment(input.chainId)
@@ -71,40 +67,26 @@ export async function buildVerifiedInstapoolV4FlashBorrowCall(input: InstapoolV4
   return buildInstapoolV4FlashBorrowCallForSimulation(input)
 }
 
-/**
- * Low-level encoding helper for unit tests and controlled simulation.
- *
- * This function deliberately has a simulation-only name. Production-facing
- * callers must use buildVerifiedInstapoolV4FlashBorrowCall(), which performs
- * live deployment bytecode identity verification first.
- */
+/** Low-level encoding helper for controlled simulation and unit tests. */
 export function buildInstapoolV4FlashBorrowCallForSimulation(input: InstapoolV4Envelope): InstadappSimulationCall {
   const verifiedConnector = assertInstapoolV4Deployment(input.chainId)
   if (verifiedConnector !== input.connector) throw new Error('INSTAPOOL_V4_CONNECTOR_MISMATCH')
 
   const data = encodeInstapoolV4FlashData(input.flash)
-  const extraData = input.flash.extraData ?? '0x'
-
   const connectorData = encodeFunctionData({
     abi: flashAbi,
     functionName: 'flashBorrowAndCast',
-    args: [input.flash.token, input.flash.amount, input.flash.route, data, extraData],
+    args: [input.flash.token, input.flash.amount, input.flash.route, data, input.flash.extraData ?? '0x'],
   })
 
   return buildInstadappCastCall({
     smartAccount: input.smartAccount,
-    targets: [verifiedConnector],
+    targets: [INSTAPOOL_V4_CONNECTOR_NAME],
     datas: [connectorData],
     origin: input.origin,
   })
 }
 
-/**
- * Legacy explicit gate retained for callers that have already completed
- * deployment verification. New production-facing construction should use
- * buildVerifiedInstapoolV4FlashBorrowCall(), which performs live bytecode
- * identity verification before constructing the executable envelope.
- */
 export function assertInstapoolV4DeploymentVerified(verified: boolean): void {
   if (!verified) throw new Error('INSTAPOOL_V4_DEPLOYMENT_NOT_VERIFIED')
 }
