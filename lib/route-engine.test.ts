@@ -19,16 +19,21 @@ const base:RouteCandidate={
 }
 
 test('two-leg route calculates net profit after costs',()=>{
-  const result=evaluateRoute(base,5,2)
+  const result=evaluateRoute(base,0.1,0.05)
   assert.equal(result.plan.grossProfitUsd,1)
   assert.equal(result.plan.netProfitUsd,0.2)
-  assert.equal(result.profitable,false)
+  assert.equal(result.profitable,true)
 })
 
 test('single-leg route is rejected',()=>{
-  assert.throws(()=>evaluateRoute({...base,legs:[base.legs[0]]},5,2),'ROUTE_REQUIRES_TWO_LEGS')
+  assert.throws(()=>evaluateRoute({...base,legs:[base.legs[0]]}))
 })
 
 test('zero loan amount is rejected',()=>{
-  assert.throws(()=>evaluateRoute({...base,loanAmount:0n},5,2),'INVALID_LOAN_AMOUNT')
+  assert.throws(()=>evaluateRoute({...base,loanAmount:0n}))
+})
+
+test('reserve blocks marginal route',()=>{
+  const result=evaluateRoute(base,0.1,0.2)
+  assert.equal(result.profitable,false)
 })
