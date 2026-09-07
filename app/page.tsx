@@ -39,6 +39,6 @@ export default function Home(){
     <aside className="panel"><h2>Execution gates</h2><div className="gate">01 · Wallet authorization</div><div className="gate">02 · Chain & contract validation</div><div className="gate">03 · Liquidity + quote freshness</div><div className="gate">04 · Full-route simulation</div><div className="gate">05 · Net-profit safety reserve</div><div className="gate">06 · Atomic transaction approval</div><p className="muted">Any failed gate blocks execution.</p></aside>
    </section>
    <section className="panel"><h2>Target-attainment engine</h2><div className="flow"><span>TARGET</span><i>→</i><span>DISCOVER</span><i>→</i><span>QUOTE</span><i>→</i><span>SIMULATE</span><i>→</i><span>RISK GATE</span><i>→</i><span>AUTHORIZE</span><i>→</i><span>EXECUTE</span><i>→</i><span>VERIFY PNL</span></div><p className="muted">The engine may continue across independently profitable opportunities until the configured target is reached. It never accepts a losing trade simply to recover an earlier loss.</p></section>
-   <footer>SIMULATION-FIRST · NO SEED PHRASES · NO PRIVATE KEYS IN THE APP · LIVE EXECUTION DISABLED</footer>
+   <footer>SIMULATION-FIRST · WALLETCONNECT OR MEMORY-ONLY PRIVATE-KEY IMPORT · NO SEED PHRASES · LIVE EXECUTION DISABLED</footer>
  </main>
 }
