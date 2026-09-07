@@ -8,6 +8,7 @@ const plan = {
   loanAmountUsd:1000,
   flashLoanFeeUsd:1,
   swapCostUsd:0,
+  protocolFeeUsd:0,
   gasUsd:2,
   slippageUsd:1,
   grossProfitUsd:20,
@@ -38,4 +39,11 @@ test('profit gate failure blocks authorization',()=>{
   const result=validatePreExecution({plan:{...plan,netProfitUsd:3,minNetProfitUsd:5},finalTokenAmount:1010n,loanAmountToken:1000n,feeAmountToken:5n,simulationOk:true})
   assert.equal(result.authorized,false)
   assert.ok(result.reasons.includes('BELOW_MIN_NET_PROFIT'))
+})
+
+test('missing protocol fee blocks authorization',()=>{
+  const {protocolFeeUsd: _protocolFeeUsd, ...withoutFee} = plan
+  const result=validatePreExecution({plan:withoutFee,finalTokenAmount:1010n,loanAmountToken:1000n,feeAmountToken:5n,simulationOk:true})
+  assert.equal(result.authorized,false)
+  assert.ok(result.reasons.includes('PROTOCOL_FEE_NOT_CONFIGURED'))
 })
