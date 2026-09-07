@@ -19,17 +19,27 @@ export default function WalletButton(){
   const [privateKey,setPrivateKey]=useState('')
   const [importedAddress,setImportedAddress]=useState<string>()
   const [importError,setImportError]=useState('')
+  const [riskConfirmed,setRiskConfirmed]=useState(false)
 
   function importKey(){
     setImportError('')
     try{
+      if(!riskConfirmed) throw new Error('Confirm the private-key risk before importing.')
       const key=normalizeKey(privateKey)
       if(!/^0x[0-9a-fA-F]{64}$/.test(key)) throw new Error('Enter a 32-byte hexadecimal private key.')
       const account=privateKeyToAccount(key)
       setImportedAddress(account.address)
       setPrivateKey('')
+      setRiskConfirmed(false)
       setShowImport(false)
     }catch(e){setImportError(e instanceof Error?e.message:'Invalid private key.')}
+  }
+
+  function removeImportedKey(){
+    setImportedAddress(undefined)
+    setPrivateKey('')
+    setRiskConfirmed(false)
+    setImportError('')
   }
 
   if(isConnected) return <div className="walletArea">
@@ -40,8 +50,8 @@ export default function WalletButton(){
 
   if(importedAddress) return <div className="walletArea">
     <div className="walletBadge"><span className="dot"/> LOCAL KEY · {importedAddress.slice(0,6)}…{importedAddress.slice(-4)}</div>
-    <small className="muted">Local signer preview only. The key is memory-only, never persisted or sent to the server, and cannot enable live execution from this UI.</small>
-    <button className="secondary" onClick={()=>setImportedAddress(undefined)}>REMOVE KEY</button>
+    <small className="muted">Memory-only signer preview. The key is never persisted or sent to the server. Live transaction signing remains disabled from this control.</small>
+    <button className="secondary" onClick={removeImportedKey}>REMOVE KEY</button>
   </div>
 
   return <div className="walletArea">
@@ -49,8 +59,9 @@ export default function WalletButton(){
     <button className="secondary" onClick={()=>setShowImport(v=>!v)}>IMPORT PRIVATE KEY · ADVANCED</button>
     {showImport && <div className="walletImport">
       <input aria-label="Private key" type="password" autoComplete="off" spellCheck={false} placeholder="0x… 32-byte private key" value={privateKey} onChange={e=>setPrivateKey(e.target.value)}/>
-      <button className="primary" onClick={importKey}>IMPORT IN MEMORY</button>
-      <small className="muted">Advanced local-only signer preview. Never paste a seed phrase. The key is not stored in localStorage, cookies, GitHub, or the API. Live transaction signing is not enabled by this control.</small>
+      <label><input type="checkbox" checked={riskConfirmed} onChange={e=>setRiskConfirmed(e.target.checked)}/> I understand that anyone with this key can control the wallet.</label>
+      <button className="primary" disabled={!riskConfirmed || !privateKey} onClick={importKey}>IMPORT IN MEMORY</button>
+      <small className="muted">Advanced local-only signer preview. Never paste a seed phrase. Do not use a funded wallet unless you understand the risk. The key is not stored in localStorage, cookies, GitHub, or the API.</small>
       {importError && <small className="error">{importError}</small>}
     </div>}
     {error && <small className="error">{error.message}</small>}
