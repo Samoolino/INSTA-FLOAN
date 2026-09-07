@@ -1,5 +1,5 @@
-import {getAddress, isAddress, type Address} from 'viem'
-import {INSTAPOOL_V4_SOURCE, type SupportedInstapoolChain} from './instapool-v4-config'
+import {getAddress, isAddress, keccak256, type Address} from 'viem'
+import {getInstapoolV4Deployment, INSTAPOOL_V4_SOURCE, type SupportedInstapoolChain} from './instapool-v4-config'
 
 type JsonRpcResponse = {result?: string; error?: {message?: string}}
 
@@ -35,16 +35,18 @@ export type InstapoolV4OnchainVerification = {
   connector: Address
   rpcConfigured: boolean
   hasBytecode: boolean
+  bytecodeHash?: `0x${string}`
+  expectedBytecodeHash?: `0x${string}`
+  identityMatched: boolean
   authorized: false
   reason: string
   sourceCommit: string
 }
 
 /**
- * Performs the first on-chain verification boundary only: the configured
- * connector must be a valid address and must resolve to deployed bytecode.
- * This intentionally does NOT mark a deployment production-authorized.
- * Bytecode/hash or explorer verification must still be established separately.
+ * Verifies the configured connector against live chain state.
+ * Production authorization remains impossible unless an independently
+ * established expected runtime bytecode hash is configured and matches.
  */
 export async function verifyInstapoolV4Bytecode(
   chainId: SupportedInstapoolChain,
@@ -53,20 +55,35 @@ export async function verifyInstapoolV4Bytecode(
   const rpcUrl = rpcForChain(chainId)
   const normalized = isAddress(connector) ? getAddress(connector) : undefined
   if (!normalized) {
-    return {chainId, connector: connector as Address, rpcConfigured: Boolean(rpcUrl), hasBytecode: false, authorized: false, reason: 'INVALID_CONNECTOR_ADDRESS', sourceCommit: INSTAPOOL_V4_SOURCE.commit}
+    return {chainId, connector: connector as Address, rpcConfigured: Boolean(rpcUrl), hasBytecode: false, identityMatched: false, authorized: false, reason: 'INVALID_CONNECTOR_ADDRESS', sourceCommit: INSTAPOOL_V4_SOURCE.commit}
   }
   if (!rpcUrl) {
-    return {chainId, connector: normalized, rpcConfigured: false, hasBytecode: false, authorized: false, reason: 'CHAIN_RPC_NOT_CONFIGURED', sourceCommit: INSTAPOOL_V4_SOURCE.commit}
+    return {chainId, connector: normalized, rpcConfigured: false, hasBytecode: false, identityMatched: false, authorized: false, reason: 'CHAIN_RPC_NOT_CONFIGURED', sourceCommit: INSTAPOOL_V4_SOURCE.commit}
   }
 
   const code = hexCode(await ethGetCode(rpcUrl, normalized))
+  if (!code) {
+    return {chainId, connector: normalized, rpcConfigured: true, hasBytecode: false, identityMatched: false, authorized: false, reason: 'CONNECTOR_HAS_NO_DEPLOYED_BYTECODE', sourceCommit: INSTAPOOL_V4_SOURCE.commit}
+  }
+
+  const bytecodeHash = keccak256(code as `0x${string}`)
+  const expectedBytecodeHash = getInstapoolV4Deployment(chainId).expectedBytecodeHash
+  const identityMatched = expectedBytecodeHash !== undefined && bytecodeHash.toLowerCase() === expectedBytecodeHash.toLowerCase()
+
   return {
     chainId,
     connector: normalized,
     rpcConfigured: true,
-    hasBytecode: code.length > 0,
+    hasBytecode: true,
+    bytecodeHash,
+    expectedBytecodeHash,
+    identityMatched,
     authorized: false,
-    reason: code.length > 0 ? 'BYTECODE_PRESENT_AUTHORIZATION_PENDING' : 'CONNECTOR_HAS_NO_DEPLOYED_BYTECODE',
+    reason: expectedBytecodeHash === undefined
+      ? 'BYTECODE_PRESENT_EXPECTED_HASH_NOT_CONFIGURED'
+      : identityMatched
+        ? 'BYTECODE_IDENTITY_MATCH_AUTHORIZATION_PENDING'
+        : 'BYTECODE_IDENTITY_MISMATCH',
     sourceCommit: INSTAPOOL_V4_SOURCE.commit,
   }
 }
@@ -74,4 +91,10 @@ export async function verifyInstapoolV4Bytecode(
 export function assertInstapoolV4BytecodePresent(result: InstapoolV4OnchainVerification): void {
   if (!result.rpcConfigured) throw new Error('CHAIN_RPC_NOT_CONFIGURED')
   if (!result.hasBytecode) throw new Error('CONNECTOR_HAS_NO_DEPLOYED_BYTECODE')
+}
+
+export function assertInstapoolV4IdentityMatched(result: InstapoolV4OnchainVerification): void {
+  assertInstapoolV4BytecodePresent(result)
+  if (!result.expectedBytecodeHash) throw new Error('EXPECTED_BYTECODE_HASH_NOT_CONFIGURED')
+  if (!result.identityMatched) throw new Error('BYTECODE_IDENTITY_MISMATCH')
 }
