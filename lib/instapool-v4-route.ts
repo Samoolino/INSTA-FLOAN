@@ -7,18 +7,6 @@ import {
 } from './instapool-v4'
 import {UNISWAP_V2_CONNECTOR, encodeUniswapV2SellSpell, type UniswapV2SellSpell} from './uniswap-v2-spell'
 
-/**
- * Deterministic two-leg Instapool V4 route envelope for simulation.
- *
- * Memory flow:
- *   ID 0: flash-loan amount (fallback value supplied to leg 1)
- *   ID 1: leg 1 output
- *   ID 2: leg 2 output / repayment amount
- *   ID 3: repayment amount recorded after flashPayback
- *
- * The route is deliberately connector-name based. Deployment identity and
- * transaction submission remain outside this module.
- */
 export const ROUTE_MEMORY_IDS = {
   loan: 0n,
   legOneOutput: 1n,
@@ -30,7 +18,7 @@ export type TwoLegUniswapRoute = {
   flash: Omit<InstapoolV4FlashBorrow, 'targets' | 'callDatas'>
   legOne: Omit<UniswapV2SellSpell, 'getId' | 'setId'>
   legTwo: Omit<UniswapV2SellSpell, 'getId' | 'setId'>
-  /** Exact token amount that the flash-loan callback must repay, including the verified loan fee. */
+  /** Exact token amount the flash-loan callback must repay, including the verified loan fee. */
   requiredRepaymentAmount: bigint
 }
 
@@ -47,16 +35,9 @@ export function buildTwoLegUniswapRouteData(route: TwoLegUniswapRoute): {targets
   if (route.requiredRepaymentAmount < route.flash.amount) throw new Error('INVALID_REQUIRED_REPAYMENT_AMOUNT')
   if (route.legOne.sellAmt !== route.flash.amount) throw new Error('LEG_ONE_AMOUNT_MUST_EQUAL_LOAN')
   if (route.legTwo.sellAmt <= 0n) throw new Error('INVALID_LEG_TWO_AMOUNT_FALLBACK')
-  if (route.legTwo.sellAmt !== route.legOne.buyAddr.length ? route.legTwo.sellAmt : route.legTwo.sellAmt) {
-    // Intentionally no-op: sellAmt is validated against the runtime memory value by simulation.
-  }
-  if (route.legTwo.buyAddr.toLowerCase() === route.flash.token.toLowerCase() && route.legTwo.sellAmt <= 0n) {
-    throw new Error('INVALID_REPAYMENT_INPUT')
-  }
   assertSameAsset(route.legOne.sellAddr, route.flash.token, 'LEG_ONE_LOAN_ASSET_MISMATCH')
   assertSameAsset(route.legTwo.buyAddr, route.flash.token, 'LEG_TWO_FINAL_ASSET_MISMATCH')
   assertSameAsset(route.legOne.buyAddr, route.legTwo.sellAddr, 'LEG_TOKEN_CONTINUITY_MISMATCH')
-  if (route.legTwo.sellAmt <= 0n) throw new Error('INVALID_LEG_TWO_AMOUNT_FALLBACK')
 
   const legOne = encodeUniswapV2SellSpell({
     ...route.legOne,
@@ -80,11 +61,6 @@ export function buildTwoLegUniswapRouteData(route: TwoLegUniswapRoute): {targets
   }
 }
 
-/**
- * Build the complete outer Instapool V4 simulation call.
- * The actual intermediate amounts and repayment sufficiency must still be
- * proven by forked eth_call before authorization.
- */
 export function buildTwoLegUniswapInstapoolSimulation(input: {
   chainId: number
   connector: Address
