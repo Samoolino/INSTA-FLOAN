@@ -35,7 +35,7 @@ async function rpc(rpcUrl: string, method: string, params: unknown[]) {
     cache: 'no-store',
   })
   if (!response.ok) throw new Error(`RPC_HTTP_${response.status}`)
-  const json = await response.json() as {result?: string | null; error?: {message?: string}}
+  const json = await response.json() as {result?: unknown; error?: {message?: string}}
   if (json.error) throw new Error(json.error.message || 'RPC_ERROR')
   if (json.result === undefined || json.result === null) throw new Error('RPC_NO_RESULT')
   return json.result
@@ -51,7 +51,7 @@ async function rpc(rpcUrl: string, method: string, params: unknown[]) {
 export async function simulateOnLocalFork(request: LocalForkSimulationRequest): Promise<LocalForkSimulationResult> {
   assertLocalRpc(request.rpcUrl)
 
-  const blockNumber = BigInt(await rpc(request.rpcUrl, 'eth_blockNumber', []))
+  const blockNumber = BigInt(await rpc(request.rpcUrl, 'eth_blockNumber', []) as string)
   const preBalance = await readTokenBalance({
     rpcUrl: request.rpcUrl,
     token: request.token,
@@ -68,10 +68,11 @@ export async function simulateOnLocalFork(request: LocalForkSimulationRequest): 
       ...(request.value !== undefined ? {value: `0x${request.value.toString(16)}`} : {}),
     }]) as Hex
 
-    const receipt = await rpc(request.rpcUrl, 'eth_getTransactionReceipt', [txHash])
-    if (!receipt) throw new Error('TRANSACTION_RECEIPT_UNAVAILABLE')
+    const receipt = await rpc(request.rpcUrl, 'eth_getTransactionReceipt', [txHash]) as {status?: string}
+    if (!receipt.status) throw new Error('TRANSACTION_RECEIPT_UNAVAILABLE')
+    if (receipt.status !== '0x1') throw new Error('SIMULATION_TRANSACTION_REVERTED')
 
-    const postBlock = BigInt(await rpc(request.rpcUrl, 'eth_blockNumber', []))
+    const postBlock = BigInt(await rpc(request.rpcUrl, 'eth_blockNumber', []) as string)
     const postBalance = await readTokenBalance({
       rpcUrl: request.rpcUrl,
       token: request.token,
