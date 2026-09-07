@@ -56,15 +56,29 @@ export function encodeInstapoolV4FlashData(input: InstapoolV4FlashBorrow): Hex {
   )
 }
 
+/**
+ * Production-facing construction boundary.
+ *
+ * A live chain bytecode identity check is mandatory before any Instapool V4
+ * call envelope is constructed. The function intentionally remains
+ * simulation-only because this module never signs or submits transactions.
+ */
 export async function buildVerifiedInstapoolV4FlashBorrowCall(input: InstapoolV4Envelope): Promise<InstapoolV4SimulationCall> {
   const verifiedConnector = assertInstapoolV4Deployment(input.chainId)
   if (verifiedConnector !== input.connector) throw new Error('INSTAPOOL_V4_CONNECTOR_MISMATCH')
   const verification = await verifyInstapoolV4Bytecode(input.chainId as Parameters<typeof verifyInstapoolV4Bytecode>[0], verifiedConnector)
   assertInstapoolV4IdentityMatched(verification)
-  return buildInstapoolV4FlashBorrowCall(input)
+  return buildInstapoolV4FlashBorrowCallForSimulation(input)
 }
 
-export function buildInstapoolV4FlashBorrowCall(input: InstapoolV4Envelope): InstadappSimulationCall {
+/**
+ * Low-level encoding helper for unit tests and controlled simulation.
+ *
+ * This function deliberately has a simulation-only name. Production-facing
+ * callers must use buildVerifiedInstapoolV4FlashBorrowCall(), which performs
+ * live deployment bytecode identity verification first.
+ */
+export function buildInstapoolV4FlashBorrowCallForSimulation(input: InstapoolV4Envelope): InstadappSimulationCall {
   const verifiedConnector = assertInstapoolV4Deployment(input.chainId)
   if (verifiedConnector !== input.connector) throw new Error('INSTAPOOL_V4_CONNECTOR_MISMATCH')
 
