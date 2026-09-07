@@ -8,6 +8,7 @@ const origin='0x0000000000000000000000000000000000000003' as `0x${string}`
 const token='0x0000000000000000000000000000000000000004' as `0x${string}`
 
 const valid={
+  chainId:1,
   connector,
   smartAccount:account,
   origin,
@@ -30,14 +31,55 @@ test('Instapool v4 rejects mismatched target/data arrays',()=>assert.throws(()=>
 
 test('Instapool v4 rejects empty flash amount',()=>assert.throws(()=>encodeInstapoolV4FlashData({...valid.flash,amount:0n}),/INVALID_FLASH_AMOUNT/))
 
-test('Instapool v4 builds an outer Smart Account cast simulation call',()=>{
-  const call=buildInstapoolV4FlashBorrowCall(valid)
-  assert.equal(call.from,account)
-  assert.equal(call.to,account)
-  assert.ok(call.data.startsWith('0x'))
-  assert.notEqual(call.data,'0x')
+test('Instapool v4 rejects an arbitrary connector before encoding the call',()=>{
+  const originalAddress=process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+  const originalVerified=process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+  process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=connector
+  process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM='true'
+  try {
+    const call=buildInstapoolV4FlashBorrowCall(valid)
+    assert.equal(call.from,account)
+    assert.equal(call.to,account)
+    assert.ok(call.data.startsWith('0x'))
+    assert.notEqual(call.data,'0x')
+  } finally {
+    if(originalAddress===undefined) delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+    else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=originalAddress
+    if(originalVerified===undefined) delete process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+    else process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM=originalVerified
+  }
 })
 
-test('Instapool v4 deployment remains fail-closed until verified',()=>assert.throws(()=>assertInstapoolV4DeploymentVerified(false),/INSTAPOOL_V4_DEPLOYMENT_NOT_VERIFIED/))
+test('Instapool v4 rejects connector mismatch against the verified chain registry',()=>{
+  const originalAddress=process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+  const originalVerified=process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+  process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM='0x0000000000000000000000000000000000000009'
+  process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM='true'
+  try {
+    assert.throws(()=>buildInstapoolV4FlashBorrowCall(valid),/INSTAPOOL_V4_CONNECTOR_MISMATCH/)
+  } finally {
+    if(originalAddress===undefined) delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+    else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=originalAddress
+    if(originalVerified===undefined) delete process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+    else process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM=originalVerified
+  }
+})
 
-test('Instapool v4 verified flag can authorize the adapter boundary',()=>assert.doesNotThrow(()=>assertInstapoolV4DeploymentVerified(true)))
+test('Instapool v4 remains fail-closed when the chain deployment is unverified',()=>{
+  const originalAddress=process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+  const originalVerified=process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+  delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+  process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM='true'
+  try {
+    assert.throws(()=>buildInstapoolV4FlashBorrowCall(valid),/INSTAPOOL_V4_CONNECTOR_NOT_CONFIGURED|INSTAPOOL_V4_DEPLOYMENT_NOT_VERIFIED/)
+  } finally {
+    if(originalAddress===undefined) delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+    else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=originalAddress
+    if(originalVerified===undefined) delete process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+    else process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM=originalVerified
+  }
+})
+
+test('Instapool v4 explicit legacy verification gate remains fail-closed',()=>assert.throws(()=>assertInstapoolV4DeploymentVerified(false),/INSTAPOOL_V4_DEPLOYMENT_NOT_VERIFIED/))
+
+test('Instapool v4 verified flag can authorize the explicit legacy boundary',()=>assert.doesNotThrow(()=>assertInstapoolV4DeploymentVerified(true)))
