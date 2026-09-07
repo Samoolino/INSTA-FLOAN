@@ -31,7 +31,7 @@ test('Instapool v4 rejects mismatched target/data arrays',()=>assert.throws(()=>
 
 test('Instapool v4 rejects empty flash amount',()=>assert.throws(()=>encodeInstapoolV4FlashData({...valid.flash,amount:0n}),/INVALID_FLASH_AMOUNT/))
 
-test('Instapool v4 rejects an arbitrary connector before encoding the call',()=>{
+test('Instapool v4 builds only with the chain registry connector',()=>{
   const originalAddress=process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
   const originalVerified=process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
   process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=connector
