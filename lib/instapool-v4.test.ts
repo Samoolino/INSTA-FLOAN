@@ -1,6 +1,6 @@
 import {strict as assert} from 'node:assert'
 import {test} from 'node:test'
-import {buildInstapoolV4FlashBorrowCall, encodeInstapoolV4FlashData, assertInstapoolV4DeploymentVerified} from './instapool-v4'
+import {buildInstapoolV4FlashBorrowCall, buildVerifiedInstapoolV4FlashBorrowCall, encodeInstapoolV4FlashData, assertInstapoolV4DeploymentVerified} from './instapool-v4'
 
 const account='0x0000000000000000000000000000000000000001' as `0x${string}`
 const connector='0x0000000000000000000000000000000000000002' as `0x${string}`
@@ -47,6 +47,29 @@ test('Instapool v4 builds only with the chain registry connector',()=>{
     else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=originalAddress
     if(originalVerified===undefined) delete process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
     else process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM=originalVerified
+  }
+})
+
+test('Instapool v4 verified construction requires an expected on-chain identity',async()=>{
+  const originalAddress=process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+  const originalVerified=process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+  const originalHash=process.env.INSTAPOOL_V4_BYTECODE_HASH_ETHEREUM
+  const originalRpc=process.env.ETH_RPC_URL
+  process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=connector
+  process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM='true'
+  delete process.env.INSTAPOOL_V4_BYTECODE_HASH_ETHEREUM
+  delete process.env.ETH_RPC_URL
+  try {
+    await assert.rejects(()=>buildVerifiedInstapoolV4FlashBorrowCall(valid),/CHAIN_RPC_NOT_CONFIGURED|EXPECTED_BYTECODE_HASH_NOT_CONFIGURED/)
+  } finally {
+    if(originalAddress===undefined) delete process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM
+    else process.env.INSTAPOOL_V4_CONNECTOR_ETHEREUM=originalAddress
+    if(originalVerified===undefined) delete process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM
+    else process.env.INSTAPOOL_V4_VERIFIED_ETHEREUM=originalVerified
+    if(originalHash===undefined) delete process.env.INSTAPOOL_V4_BYTECODE_HASH_ETHEREUM
+    else process.env.INSTAPOOL_V4_BYTECODE_HASH_ETHEREUM=originalHash
+    if(originalRpc===undefined) delete process.env.ETH_RPC_URL
+    else process.env.ETH_RPC_URL=originalRpc
   }
 })
 
