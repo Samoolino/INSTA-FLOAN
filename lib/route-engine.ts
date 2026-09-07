@@ -8,6 +8,8 @@ export type RouteLeg = {
   tokenOut: string
   amountIn: bigint
   amountOut: bigint
+  /** Explicit DEX/router fee attributable to this leg, in USD. */
+  feeUsd: number
 }
 
 export type RouteCandidate = {
@@ -50,14 +52,17 @@ export function evaluateRoute(route: RouteCandidate, minNetProfitUsd: number, sa
   if (first.chainId !== route.chainId || last.chainId !== route.chainId) throw new Error('CHAIN_MISMATCH')
   if (first.tokenIn.toLowerCase() !== route.loanAsset.toLowerCase()) throw new Error('LOAN_ASSET_PATH_MISMATCH')
   if (last.tokenOut.toLowerCase() !== route.loanAsset.toLowerCase()) throw new Error('FINAL_ASSET_PATH_MISMATCH')
-  for (let i=1; i<route.legs.length; i++) {
-    if (route.legs[i-1].tokenOut.toLowerCase() !== route.legs[i].tokenIn.toLowerCase()) throw new Error('LEG_CONTINUITY_MISMATCH')
-    if (route.legs[i].amountIn !== route.legs[i-1].amountOut) throw new Error('LEG_AMOUNT_MISMATCH')
+  for (let i=0; i<route.legs.length; i++) {
+    if (!finiteNonNegative(route.legs[i].feeUsd)) throw new Error('INVALID_LEG_FEE')
+    if (i > 0) {
+      if (route.legs[i-1].tokenOut.toLowerCase() !== route.legs[i].tokenIn.toLowerCase()) throw new Error('LEG_CONTINUITY_MISMATCH')
+      if (route.legs[i].amountIn !== route.legs[i-1].amountOut) throw new Error('LEG_AMOUNT_MISMATCH')
+    }
   }
   if (first.amountIn !== route.loanAmount) throw new Error('INITIAL_AMOUNT_MISMATCH')
   if (last.amountOut !== route.expectedFinalAmount) throw new Error('FINAL_AMOUNT_MISMATCH')
 
-  const swapCostUsd = 0
+  const swapCostUsd = route.legs.reduce((total, leg) => total + leg.feeUsd, 0)
   const grossProfitUsd = route.expectedFinalUsd - route.loanAmountUsd
   const netProfitUsd = grossProfitUsd - route.flashLoanFeeUsd - swapCostUsd - protocolFeeUsd - route.gasUsd - route.slippageUsd
 
