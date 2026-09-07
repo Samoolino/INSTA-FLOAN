@@ -18,6 +18,8 @@ export type TwoLegUniswapRoute = {
   flash: Omit<InstapoolV4FlashBorrow, 'targets' | 'callDatas'>
   legOne: Omit<UniswapV2SellSpell, 'getId' | 'setId'>
   legTwo: Omit<UniswapV2SellSpell, 'getId' | 'setId'>
+  /** Quote-derived final amount expected from leg two before fork simulation. */
+  expectedFinalAmount: bigint
   /** Exact token amount the flash-loan callback must repay, including the verified loan fee. */
   requiredRepaymentAmount: bigint
 }
@@ -33,22 +35,15 @@ function assertSameAsset(left: Address, right: Address, error: string) {
 export function buildTwoLegUniswapRouteData(route: TwoLegUniswapRoute): {targets: string[]; callDatas: Hex[]} {
   if (route.flash.amount <= 0n) throw new Error('INVALID_FLASH_AMOUNT')
   if (route.requiredRepaymentAmount < route.flash.amount) throw new Error('INVALID_REQUIRED_REPAYMENT_AMOUNT')
+  if (route.expectedFinalAmount < route.requiredRepaymentAmount) throw new Error('EXPECTED_REPAYMENT_SHORTFALL')
   if (route.legOne.sellAmt !== route.flash.amount) throw new Error('LEG_ONE_AMOUNT_MUST_EQUAL_LOAN')
   if (route.legTwo.sellAmt <= 0n) throw new Error('INVALID_LEG_TWO_AMOUNT_FALLBACK')
   assertSameAsset(route.legOne.sellAddr, route.flash.token, 'LEG_ONE_LOAN_ASSET_MISMATCH')
   assertSameAsset(route.legTwo.buyAddr, route.flash.token, 'LEG_TWO_FINAL_ASSET_MISMATCH')
   assertSameAsset(route.legOne.buyAddr, route.legTwo.sellAddr, 'LEG_TOKEN_CONTINUITY_MISMATCH')
 
-  const legOne = encodeUniswapV2SellSpell({
-    ...route.legOne,
-    getId: ROUTE_MEMORY_IDS.loan,
-    setId: ROUTE_MEMORY_IDS.legOneOutput,
-  })
-  const legTwo = encodeUniswapV2SellSpell({
-    ...route.legTwo,
-    getId: ROUTE_MEMORY_IDS.legOneOutput,
-    setId: ROUTE_MEMORY_IDS.legTwoOutput,
-  })
+  const legOne = encodeUniswapV2SellSpell({...route.legOne, getId: ROUTE_MEMORY_IDS.loan, setId: ROUTE_MEMORY_IDS.legOneOutput})
+  const legTwo = encodeUniswapV2SellSpell({...route.legTwo, getId: ROUTE_MEMORY_IDS.legOneOutput, setId: ROUTE_MEMORY_IDS.legTwoOutput})
   const payback = encodeFunctionData({
     abi: paybackAbi,
     functionName: 'flashPayback',
@@ -69,11 +64,7 @@ export function buildTwoLegUniswapInstapoolSimulation(input: {
   route: TwoLegUniswapRoute
 }): ReturnType<typeof buildInstapoolV4FlashBorrowCallForSimulation> {
   const {targets, callDatas} = buildTwoLegUniswapRouteData(input.route)
-  const flash: InstapoolV4FlashBorrow = {
-    ...input.route.flash,
-    targets,
-    callDatas,
-  }
+  const flash: InstapoolV4FlashBorrow = {...input.route.flash, targets, callDatas}
   const envelope: InstapoolV4Envelope = {
     chainId: input.chainId,
     connector: input.connector,
