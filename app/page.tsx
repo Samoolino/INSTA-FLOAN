@@ -1,7 +1,44 @@
 'use client'
+
 import {useState} from 'react'
+import {useAccount} from 'wagmi'
 import {strategies} from '../lib/strategies'
+import WalletButton from '../components/WalletButton'
+
 export default function Home(){
- const [connected,setConnected]=useState(false); const [status,setStatus]=useState('READY'); const [target,setTarget]=useState(100)
- async function scan(){setStatus('SCANNING'); const r=await fetch(`/api/scan?target=${target}`); const j=await r.json(); setStatus(j.targetReached?'TARGET REACHED':'NO EXECUTABLE PATH')}
- return <main><header><b>INSTA-FLOAN</b><span>RPC • CLOUD • AUTH • TARGET ENGINE</span></header><section className="hero"><small>INSTADAPP FLASH-LOAN ARBITRAGE CONTROL PLANE</small><h1>Borrow liquidity. Search every permitted path. Stop when the target is attained.</h1><p>Simulation-first architecture for atomic flash-loan arbitrage. No private keys are stored by the application.</p><div className="actions"><button onClick={()=>setConnected(!connected)}>{connected?'WALLET CONNECTED':'CONNECT WALLET'}</button><input type="number" min="1" value={target} onChange={e=>setTarget(Number(e.target.value))}/><button onClick={scan}>SCAN TO TARGET</button></div></section><section className="stats"><div>AUTH<strong>{connected?'CONNECTED':'GUEST'}</strong></div><div>STRATEGIES<strong>{strategies.length}</strong></div><div>TARGET<strong>${target}</strong></div><div>STATE<strong>{status}</strong></div></section><section className="panel"><h2>Liquidity strategy matrix</h2>{strategies.map(s=><div className="row" key={s.id}><b>{s.name}</b><span>{s.mode}</span><span>{s.chains}</span><em>{s.guard}</em></div>)}</section><section className="panel"><h2>Target-attainment logic</h2><p>1. Discover candidate routes across every enabled liquidity source.</p><p>2. Simulate each route with gas, fees, slippage, price impact and repayment.</p><p>3. Reject any route that fails the minimum net-profit or safety-reserve gate.</p><p>4. Rank viable routes and execute only individually authorized, atomic paths.</p><p>5. Accumulate realized net profit until the configured target is reached, then stop.</p><p><b>Important:</b> this repository currently remains simulation-only; live execution requires verified Instadapp transaction construction and fork tests.</p></section></main>}
+ const [status,setStatus]=useState('READY')
+ const [target,setTarget]=useState(100)
+ const {isConnected}=useAccount()
+ async function scan(){
+   setStatus('SCANNING')
+   try{
+     const r=await fetch(`/api/scan?target=${target}`)
+     const j=await r.json()
+     setStatus(j.targetReached?'TARGET REACHED':'NO EXECUTABLE PATH')
+   }catch{setStatus('SCAN ERROR')}
+ }
+ return <main>
+   <header><div><b>INSTA-FLOAN</b><span> · CONTROL PLANE</span></div><WalletButton/></header>
+   <section className="hero">
+     <small>INSTADAPP-ORIENTED FLASH-LOAN ARBITRAGE</small>
+     <h1>Liquidity discovery, route simulation and target-controlled execution.</h1>
+     <p>Designed as a front-end-first control surface for multi-wallet EVM access, opportunity scanning and eventually atomic Instadapp execution. The current execution mode is simulation-only.</p>
+     <div className="actions">
+       <label>TARGET PROFIT <input type="number" min="1" value={target} onChange={e=>setTarget(Number(e.target.value)||1)}/></label>
+       <button className="primary" onClick={scan}>SCAN TO TARGET</button>
+     </div>
+   </section>
+   <section className="stats">
+     <div>WALLET<strong>{isConnected?'CONNECTED':'NOT CONNECTED'}</strong></div>
+     <div>STRATEGIES<strong>{strategies.length}</strong></div>
+     <div>TARGET<strong>${target}</strong></div>
+     <div>ENGINE<strong>{status}</strong></div>
+   </section>
+   <section className="grid">
+    <div className="panel"><h2>Liquidity strategy matrix</h2>{strategies.map(s=><div className="row" key={s.id}><b>{s.name}</b><span>{s.mode}</span><span>{s.chains}</span><em>{s.guard}</em></div>)}</div>
+    <aside className="panel"><h2>Execution gates</h2><div className="gate">01 · Wallet authorization</div><div className="gate">02 · Chain & contract validation</div><div className="gate">03 · Liquidity + quote freshness</div><div className="gate">04 · Full-route simulation</div><div className="gate">05 · Net-profit safety reserve</div><div className="gate">06 · Atomic transaction approval</div><p className="muted">Any failed gate blocks execution.</p></aside>
+   </section>
+   <section className="panel"><h2>Target-attainment engine</h2><div className="flow"><span>TARGET</span><i>→</i><span>DISCOVER</span><i>→</i><span>QUOTE</span><i>→</i><span>SIMULATE</span><i>→</i><span>RISK GATE</span><i>→</i><span>AUTHORIZE</span><i>→</i><span>EXECUTE</span><i>→</i><span>VERIFY PNL</span></div><p className="muted">The engine may continue across independently profitable opportunities until the configured target is reached. It never accepts a losing trade simply to recover an earlier loss.</p></section>
+   <footer>SIMULATION-FIRST · NO SEED PHRASES · NO PRIVATE KEYS IN THE APP · LIVE EXECUTION DISABLED</footer>
+ </main>
+}
