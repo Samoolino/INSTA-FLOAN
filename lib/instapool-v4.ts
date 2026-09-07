@@ -1,6 +1,7 @@
 import {encodeAbiParameters, encodeFunctionData, parseAbi, type Address, type Hex} from 'viem'
 import {buildInstadappCastCall, type InstadappSimulationCall} from './instadapp-adapter'
 import {assertInstapoolV4Deployment} from './instapool-v4-config'
+import {assertInstapoolV4IdentityMatched, verifyInstapoolV4Bytecode} from './instapool-v4-onchain'
 
 /**
  * Verified against Instadapp's dsa-connectors Instapool-v4 source:
@@ -55,6 +56,14 @@ export function encodeInstapoolV4FlashData(input: InstapoolV4FlashBorrow): Hex {
   )
 }
 
+export async function buildVerifiedInstapoolV4FlashBorrowCall(input: InstapoolV4Envelope): Promise<InstapoolV4SimulationCall> {
+  const verifiedConnector = assertInstapoolV4Deployment(input.chainId)
+  if (verifiedConnector !== input.connector) throw new Error('INSTAPOOL_V4_CONNECTOR_MISMATCH')
+  const verification = await verifyInstapoolV4Bytecode(input.chainId as Parameters<typeof verifyInstapoolV4Bytecode>[0], verifiedConnector)
+  assertInstapoolV4IdentityMatched(verification)
+  return buildInstapoolV4FlashBorrowCall(input)
+}
+
 export function buildInstapoolV4FlashBorrowCall(input: InstapoolV4Envelope): InstadappSimulationCall {
   const verifiedConnector = assertInstapoolV4Deployment(input.chainId)
   if (verifiedConnector !== input.connector) throw new Error('INSTAPOOL_V4_CONNECTOR_MISMATCH')
@@ -78,8 +87,9 @@ export function buildInstapoolV4FlashBorrowCall(input: InstapoolV4Envelope): Ins
 
 /**
  * Legacy explicit gate retained for callers that have already completed
- * deployment verification. New call construction uses the chain-specific
- * registry above and cannot bypass it with an arbitrary address.
+ * deployment verification. New production-facing construction should use
+ * buildVerifiedInstapoolV4FlashBorrowCall(), which performs live bytecode
+ * identity verification before constructing the executable envelope.
  */
 export function assertInstapoolV4DeploymentVerified(verified: boolean): void {
   if (!verified) throw new Error('INSTAPOOL_V4_DEPLOYMENT_NOT_VERIFIED')
