@@ -1,10 +1,13 @@
 import {strict as assert} from 'node:assert'
 import {describe, it} from 'node:test'
-import {decodeFunctionData, type Address, type Hex} from 'viem'
-import {buildTwoLegUniswapRouteData, ROUTE_MEMORY_IDS} from './instapool-v4-route'
+import {decodeAbiParameters, decodeFunctionData, type Address, type Hex} from 'viem'
+import {buildTwoLegUniswapInstapoolSimulation, buildTwoLegUniswapRouteData, ROUTE_MEMORY_IDS} from './instapool-v4-route'
 
 const TOKEN_A = '0x0000000000000000000000000000000000000001' as Address
 const TOKEN_B = '0x0000000000000000000000000000000000000002' as Address
+const SMART_ACCOUNT = '0x0000000000000000000000000000000000000011' as Address
+const ORIGIN = '0x0000000000000000000000000000000000000022' as Address
+const CONNECTOR = '0x0000000000000000000000000000000000000033' as Address
 const AMOUNT = 1_000_000n
 
 const baseRoute = () => ({
@@ -22,6 +25,13 @@ const sellAbi = [{type: 'function', name: 'sell', stateMutability: 'payable', in
 const paybackAbi = [{type: 'function', name: 'flashPayback', stateMutability: 'payable', inputs: [
   {name: 'token', type: 'address'}, {name: 'amt', type: 'uint256'}, {name: 'getId', type: 'uint256'}, {name: 'setId', type: 'uint256'}
 ], outputs: [{name: '_eventName', type: 'string'}, {name: '_eventParam', type: 'bytes'}]}] as const
+const flashAbi = [{type: 'function', name: 'flashBorrowAndCast', stateMutability: 'payable', inputs: [
+  {name: 'token', type: 'address'}, {name: 'amt', type: 'uint256'}, {name: 'route', type: 'uint256'},
+  {name: 'data', type: 'bytes'}, {name: 'extraData', type: 'bytes'}
+], outputs: [{name: '_eventName', type: 'string'}, {name: '_eventParam', type: 'bytes'}]}] as const
+const castAbi = [{type: 'function', name: 'cast', stateMutability: 'payable', inputs: [
+  {name: '_targets', type: 'string[]'}, {name: '_datas', type: 'bytes[]'}, {name: '_origin', type: 'address'}
+], outputs: [{name: 'responses', type: 'bytes32[]'}]}] as const
 
 describe('Instapool V4 two-leg route', () => {
   it('builds the expected connector-name sequence and memory flow', () => {
@@ -43,6 +53,34 @@ describe('Instapool V4 two-leg route', () => {
     assert.equal(payback.args?.[1], AMOUNT + 10_000n)
     assert.equal(payback.args?.[2], ROUTE_MEMORY_IDS.legTwoOutput)
     assert.equal(payback.args?.[3], ROUTE_MEMORY_IDS.repayment)
+  })
+
+  it('decodes the complete nested cast envelope without changing connector identity', () => {
+    const simulation = buildTwoLegUniswapInstapoolSimulation({
+      chainId: 1,
+      connector: CONNECTOR,
+      smartAccount: SMART_ACCOUNT,
+      origin: ORIGIN,
+      route: baseRoute(),
+    })
+
+    assert.equal(simulation.from, SMART_ACCOUNT)
+    assert.equal(simulation.to, SMART_ACCOUNT)
+
+    const cast = decodeFunctionData({abi: castAbi, data: simulation.data})
+    assert.deepEqual(cast.args?.[0], ['Instapool-v4'])
+    assert.equal(cast.args?.[1].length, 1)
+    assert.equal(cast.args?.[2], ORIGIN)
+
+    const [token, amount, route, nestedData, extraData] = decodeFunctionData({abi: flashAbi, data: cast.args?.[1][0] as Hex}).args!
+    assert.equal(token, TOKEN_A)
+    assert.equal(amount, AMOUNT)
+    assert.equal(route, 0n)
+    assert.equal(extraData, '0x')
+
+    const [targets, callDatas] = decodeAbiParameters([{type: 'string[]'}, {type: 'bytes[]'}], nestedData as Hex)
+    assert.deepEqual(targets, ['UNISWAP-V2-A', 'UNISWAP-V2-A', 'Instapool-v4'])
+    assert.equal(callDatas.length, 3)
   })
 
   it('rejects a broken token path', () => {
