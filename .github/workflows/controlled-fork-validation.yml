@@ -1,0 +1,92 @@
+name: Controlled Fork Validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controlled-fork:
+    name: Instapool V4 controlled Anvil fork
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      INSTA_FORK_INTEGRATION: "true"
+      INSTA_FORK_RPC_URL: http://127.0.0.1:8545
+      INSTA_FORK_CHAIN_ID: ${{ secrets.INSTA_FORK_CHAIN_ID }}
+      INSTA_FORK_CONNECTOR: ${{ secrets.INSTA_FORK_CONNECTOR }}
+      INSTA_FORK_SMART_ACCOUNT: ${{ secrets.INSTA_FORK_SMART_ACCOUNT }}
+      INSTA_FORK_ORIGIN: ${{ secrets.INSTA_FORK_ORIGIN }}
+      INSTA_FORK_TOKEN_A: ${{ secrets.INSTA_FORK_TOKEN_A }}
+      INSTA_FORK_TOKEN_B: ${{ secrets.INSTA_FORK_TOKEN_B }}
+      INSTA_FORK_FLASH_AMOUNT: ${{ secrets.INSTA_FORK_FLASH_AMOUNT }}
+      INSTA_FORK_REQUIRED_REPAYMENT_AMOUNT: ${{ secrets.INSTA_FORK_REQUIRED_REPAYMENT_AMOUNT }}
+      INSTA_FORK_EXPECTED_FINAL_AMOUNT: ${{ secrets.INSTA_FORK_EXPECTED_FINAL_AMOUNT }}
+      INSTA_FORK_LEG_ONE_UNIT_AMT: ${{ secrets.INSTA_FORK_LEG_ONE_UNIT_AMT }}
+      INSTA_FORK_LEG_TWO_SELL_AMOUNT: ${{ secrets.INSTA_FORK_LEG_TWO_SELL_AMOUNT }}
+      INSTA_FORK_LEG_TWO_UNIT_AMT: ${{ secrets.INSTA_FORK_LEG_TWO_UNIT_AMT }}
+      ANVIL_FORK_URL: ${{ secrets.ANVIL_FORK_URL }}
+      ANVIL_FORK_BLOCK_NUMBER: ${{ secrets.ANVIL_FORK_BLOCK_NUMBER }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required fork fixture inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            INSTA_FORK_CHAIN_ID INSTA_FORK_CONNECTOR INSTA_FORK_SMART_ACCOUNT
+            INSTA_FORK_ORIGIN INSTA_FORK_TOKEN_A INSTA_FORK_TOKEN_B
+            INSTA_FORK_FLASH_AMOUNT INSTA_FORK_REQUIRED_REPAYMENT_AMOUNT
+            INSTA_FORK_EXPECTED_FINAL_AMOUNT INSTA_FORK_LEG_ONE_UNIT_AMT
+            INSTA_FORK_LEG_TWO_SELL_AMOUNT INSTA_FORK_LEG_TWO_UNIT_AMT
+            ANVIL_FORK_URL ANVIL_FORK_BLOCK_NUMBER
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required controlled-fork secret: ${name}"
+              exit 1
+            fi
+          done
+          if [[ "$ANVIL_FORK_URL" == *"127.0.0.1"* || "$ANVIL_FORK_URL" == *"localhost"* ]]; then
+            echo "ANVIL_FORK_URL must be an upstream fork source, not the local Anvil endpoint."
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Start pinned Anvil fork
+        shell: bash
+        run: |
+          set -euo pipefail
+          anvil --fork-url "$ANVIL_FORK_URL" --fork-block-number "$ANVIL_FORK_BLOCK_NUMBER" --host 127.0.0.1 --port 8545 --silent > /tmp/anvil.log 2>&1 &
+          for i in {1..30}; do
+            if cast chain-id --rpc-url "$INSTA_FORK_RPC_URL" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          cast chain-id --rpc-url "$INSTA_FORK_RPC_URL"
+          cast block-number --rpc-url "$INSTA_FORK_RPC_URL"
+
+      - name: Execute controlled fork tests
+        run: npm test -- --test-name-pattern='Instapool V4'
+
+      - name: Upload Anvil log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: controlled-fork-anvil-log
+          path: /tmp/anvil.log
