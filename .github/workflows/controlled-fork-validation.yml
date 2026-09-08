@@ -81,8 +81,8 @@ jobs:
           cast chain-id --rpc-url "$INSTA_FORK_RPC_URL"
           cast block-number --rpc-url "$INSTA_FORK_RPC_URL"
 
-      - name: Execute controlled fork tests
-        run: npm test -- --test-name-pattern='Instapool V4'
+      - name: Execute dedicated controlled fork tests
+        run: npx tsx --test lib/instapool-v4-local-fork.integration.test.ts
 
       - name: Upload Anvil log on failure
         if: failure()
