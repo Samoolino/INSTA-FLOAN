@@ -68,7 +68,9 @@ Canonical Vercel project: `insta-floan` (`prj_vzRQ7tmPR0id7Ym1lhCgyRfuQqnM`).
 
 The connected Vercel control plane currently reports **zero deployments and no production domain**. Therefore no verified pilot URL can truthfully be published yet.
 
-The Vercel deployment tool in the current connection rejected the deployment request because its deployment payload requires target/name/files inputs that are not exposed by the currently loaded action schema. This is a deployment-tooling blocker, not evidence of a successful deployment.
+A canonical GitHub Actions production pipeline has now been committed at `.github/workflows/vercel-production.yml`. It targets the canonical Vercel project, uses Node 24, builds with `vercel build --prod`, and deploys the prebuilt output with `vercel deploy --prebuilt --prod`. The workflow requires the Vercel `VERCEL_TOKEN` GitHub secret and the GitHub `production` environment; no Vercel credential is committed to the repository.
+
+The connected Vercel deployment action itself still cannot be invoked from this connection because its backend currently requires target/name/files inputs that are not exposed by the loaded action schema. Therefore the new GitHub pipeline is the canonical production-deployment path until that connector limitation is removed.
 
 ## Pilot gate
 
