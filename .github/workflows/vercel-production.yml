@@ -1,0 +1,55 @@
+name: Vercel Production Deployment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_ORG_ID: team_YnYjiqv2j4c106mr6BorOBFL
+  VERCEL_PROJECT_ID: prj_vzRQ7tmPR0id7Ym1lhCgyRfuQqnM
+
+jobs:
+  deploy:
+    name: Build and deploy canonical insta-floan
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify production execution remains fail-closed
+        run: |
+          test "${LIVE_EXECUTION:-false}" != "true"
+          test "${PRODUCTION_EXECUTION_PATH_ENABLED:-false}" != "true"
+          test "${PRODUCTION_KILL_SWITCH_ENABLED:-true}" = "true"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel
+
+      - name: Pull Vercel production configuration
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build production output
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy production output
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
