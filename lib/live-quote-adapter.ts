@@ -29,6 +29,14 @@ function routesFromEnv(): LiveRoute[] {
   return parsed as LiveRoute[]
 }
 
+export function getConfiguredLiveVenues(): string[] {
+  const venues = new Set<string>()
+  for (const route of routesFromEnv()) {
+    if (typeof route.venue === 'string' && route.venue.trim()) venues.add(route.venue.trim())
+  }
+  return [...venues].sort()
+}
+
 async function decimals(client: ReturnType<typeof createPublicClient>, token: Address, configured?: number) {
   if (configured !== undefined) return configured
   return Number(await client.readContract({
