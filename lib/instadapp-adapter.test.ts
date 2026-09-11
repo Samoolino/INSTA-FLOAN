@@ -1,6 +1,6 @@
 import {strict as assert} from 'node:assert'
 import {test} from 'node:test'
-import {buildInstadappCastCall, assertInstadappExecutionReady} from './instadapp-adapter'
+import {buildInstadappCastCall, assertInstadappExecutionReady, getInstadappCastEngineStatus, INSTADAPP_CAST_ENGINE} from './instadapp-adapter'
 
 const account='0x0000000000000000000000000000000000000001' as `0x${string}`
 const target='UNISWAP-V2-A'
@@ -18,5 +18,13 @@ test('Instadapp boundary produces a cast simulation call without submission',()=
  assert.equal(call.to,account)
  assert.ok(call.data.startsWith('0x'))
  assert.notEqual(call.data,'0x')
+})
+test('Cast engine is direct DSL ABI rather than archived SDK',()=>{
+ const status=getInstadappCastEngineStatus()
+ assert.equal(status.engine,INSTADAPP_CAST_ENGINE.name)
+ assert.equal(status.mode,'direct-abi')
+ assert.equal(status.castSignature,'cast(string[],bytes[],address)')
+ assert.equal(status.liveExecution,'BLOCKED')
+ assert.match(status.archivedSdkReference,/1\.5\.15/)
 })
 test('live Instadapp execution remains explicitly blocked',()=>assert.throws(()=>assertInstadappExecutionReady(),/VERIFIED_MODULE_SIGNATURE_AND_DEPLOYMENT/))
