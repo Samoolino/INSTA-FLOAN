@@ -4,9 +4,9 @@ The application already reads the Ethereum mainnet RPC from the server-only `ETH
 
 ## Development setup
 
-Do **not** commit the Alchemy credential into Git, `.env.example`, frontend code, or client-side bundles. Alchemy recommends keeping backend API credentials out of URLs where possible and using protected environment configuration. citeturn0search0turn0search4
+Do **not** commit the Alchemy credential into Git, `.env.example`, frontend code, or client-side bundles. Keep it in protected environment configuration.
 
-For local development, create `.env.development.local` (already covered by the repository's secret-file ignore rules) and set:
+For local development, create `.env.development.local` (covered by the repository's secret-file ignore rules) and set:
 
 ```dotenv
 ETH_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/<ROTATED_ALCHEMY_API_KEY>
@@ -27,7 +27,7 @@ curl http://localhost:3000/api/health
 
 A healthy response includes `ok: true`, `network: ethereum-mainnet`, and the current block number.
 
-The underlying JSON-RPC method is `eth_blockNumber`, which Alchemy documents as a POST JSON-RPC endpoint returning the latest block as a hexadecimal quantity. citeturn0search1turn0search9
+The underlying JSON-RPC method is `eth_blockNumber`; Alchemy documents it as a POST JSON-RPC endpoint returning the latest block as a hexadecimal quantity.
 
 ## Vercel Development environment
 
@@ -37,7 +37,7 @@ The same variable must be added to the Vercel **Development** environment as a s
 vercel env add ETH_RPC_URL development
 ```
 
-When prompted, paste the **rotated** Alchemy key-backed RPC URL. Do not put it in a `NEXT_PUBLIC_*` variable because that would expose the credential to the browser. citeturn743file0
+When prompted, paste the **rotated** Alchemy key-backed RPC URL. Do not put it in a `NEXT_PUBLIC_*` variable because that would expose the credential to the browser.
 
 For local syncing from Vercel:
 
@@ -47,7 +47,7 @@ vercel env pull .env.development.local --environment=development --yes
 
 ## Security note
 
-The RPC credential supplied during development was pasted into chat. Treat that credential as exposed and rotate/revoke it in Alchemy before using the application beyond a disposable test. Alchemy recommends rotating API keys if compromise is suspected. citeturn0search0
+The RPC credential supplied during development was pasted into chat. Treat that credential as exposed and rotate/revoke it in Alchemy before using the application beyond a disposable test. After rotation, use only the replacement credential in local/Vercel Development environment variables.
 
 ## Execution gate
 
