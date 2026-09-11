@@ -63,6 +63,12 @@ PRODUCTION_KILL_SWITCH_ENABLED=true
 
 until the controlled-fork and all production gates have independently passed.
 
+## Deployment verification
+
+The branch deployment must reach `READY` before this MCP endpoint is considered available. A build failure is a release blocker; the previous MCP dependency deployment was observed building successfully, while the first MCP route revision failed type-checking because it used an obsolete three-argument `createMcpHandler` call. The route was corrected to the current two-argument API before the next deployment attempt.
+
+The production site is not promoted by this change. Real execution remains blocked.
+
 ## Why this design
 
 The current MCP specification is stateless and HTTP-native, allowing the endpoint to scale behind ordinary HTTP infrastructure. The MCP specification also provides authorization hardening and a formal extension model. INSTA-FLOAN deliberately keeps transaction authorization outside the MCP tool surface so an agent cannot turn a read-only market-intelligence channel into an unrestricted wallet executor.
