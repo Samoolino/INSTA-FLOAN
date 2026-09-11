@@ -152,7 +152,7 @@ const handler = createMcpHandler((server) => {
       executionAuthorization: 'BLOCKED',
     }, null, 2)}]}),
   )
-}, {}, {basePath: '/api'})
+})
 
 async function securedHandler(request: Request) {
   if (!authorized(request)) return unauthorized()
