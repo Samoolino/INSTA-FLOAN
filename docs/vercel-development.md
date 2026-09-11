@@ -17,6 +17,12 @@ npm run dev
 
 `vercel link` associates the local checkout with the existing `insta-floan` Vercel project. `vercel env pull` downloads the Development environment variables into the local file specified above. Do not commit `.vercel/` or local `.env*` files.
 
+## Required runtime configuration
+
+The health endpoint intentionally reports an unhealthy state when the primary Ethereum RPC is absent. Production therefore needs at least `ETH_RPC_URL` before `/api/health` can be healthy. The live multi-chain adapter can additionally use `ARB_RPC_URL`, `BASE_RPC_URL`, and `BSC_RPC_URL`. The repository `.env.example` is the authoritative list of supported variables.
+
+Do not place placeholder RPC URLs, example router addresses, or fabricated liquidity values into Production. `LIVE_QUOTE_ROUTES` must contain independently verified on-chain routes. If those routes are absent, the dashboard must report no live executable opportunities rather than inventing them.
+
 ## Preview validation
 
 Push a feature branch or open/update a pull request. Vercel Git integration creates a Preview deployment for the branch. Validate the Preview before promoting anything to Production:
@@ -25,9 +31,10 @@ Push a feature branch or open/update a pull request. Vercel Git integration crea
 2. dashboard loads without runtime errors;
 3. `/api/health` returns healthy;
 4. `/api/scan` returns explicit readiness/assurance state;
-5. live quote configuration is explicit and verified;
-6. no real transaction is submitted by scanning;
-7. real execution gates remain fail-closed.
+5. required RPC configuration is present in the appropriate Vercel environment;
+6. live quote configuration is explicit and verified;
+7. no real transaction is submitted by scanning;
+8. real execution gates remain fail-closed.
 
 ## Production
 
