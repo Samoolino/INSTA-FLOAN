@@ -10,9 +10,10 @@ export function getFlashLiquidity(): FlashLiquidity[] {
   return parsed.filter((item): item is FlashLiquidity => {
     if (!item || typeof item !== 'object') return false
     const x = item as Partial<FlashLiquidity>
+    const availableUsd = Number(x.availableUsd)
     return typeof x.lender === 'string' && x.lender.length > 0
       && Number.isInteger(x.chainId)
       && typeof x.token === 'string' && x.token.length > 0
-      && Number.isFinite(x.availableUsd) && x.availableUsd > 0
+      && Number.isFinite(availableUsd) && availableUsd > 0
   })
 }
