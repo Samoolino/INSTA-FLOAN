@@ -30,12 +30,6 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Verify production execution remains fail-closed
-        run: |
-          test "${LIVE_EXECUTION:-false}" != "true"
-          test "${PRODUCTION_EXECUTION_PATH_ENABLED:-false}" != "true"
-          test "${PRODUCTION_KILL_SWITCH_ENABLED:-true}" = "true"
-
       - name: Install Vercel CLI
         run: npm install --global vercel
 
@@ -43,6 +37,17 @@ jobs:
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Verify pulled production configuration
+        shell: bash
+        run: |
+          test -s .env.production.local
+          # Do not print the secret; only assert that the required RPC exists.
+          grep -Eq '^ETH_RPC_URL=.+$' .env.production.local
+          # Trading must remain fail-closed in the production build.
+          test "$(sed -n 's/^LIVE_EXECUTION=//p' .env.production.local | tail -n 1)" != "true"
+          test "$(sed -n 's/^PRODUCTION_EXECUTION_PATH_ENABLED=//p' .env.production.local | tail -n 1)" != "true"
+          test "$(sed -n 's/^PRODUCTION_KILL_SWITCH_ENABLED=//p' .env.production.local | tail -n 1)" = "true"
 
       - name: Build production output
         run: vercel build --prod --token="$VERCEL_TOKEN"
