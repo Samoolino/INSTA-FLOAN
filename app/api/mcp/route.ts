@@ -6,7 +6,7 @@ import {getFlashLiquidity} from '../../../lib/flash-liquidity'
 import {buildOpportunityGraph} from '../../../lib/opportunity-graph'
 import {assessOpportunityCoverage} from '../../../lib/opportunity-assurance'
 import {discoverOpportunities} from '../../../lib/market'
-import {getLiveQuotes} from '../../../lib/live-quote-adapter'
+import {getConfiguredLiveVenues, getLiveQuotes} from '../../../lib/live-quote-adapter'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,11 +23,13 @@ function authorized(request: Request) {
 async function marketSnapshot() {
   const quotes = await getLiveQuotes()
   const liquidity = getFlashLiquidity()
+  const configuredVenues = getConfiguredLiveVenues()
   const opportunities = discoverOpportunities(quotes)
-  const assurance = assessOpportunityCoverage(quotes, liquidity, opportunities)
+  const assurance = assessOpportunityCoverage(quotes, liquidity, opportunities, configuredVenues)
   const graph = buildOpportunityGraph(liquidity, quotes)
+  const executableOpportunities = opportunities.filter(o => o.safe && o.net >= runtimeConfig.minNetProfitUsd)
 
-  return {quotes, liquidity, opportunities, assurance, graph}
+  return {quotes, liquidity, configuredVenues, opportunities, executableOpportunities, assurance, graph}
 }
 
 const handler = createMcpHandler((server) => {
@@ -80,10 +82,37 @@ const handler = createMcpHandler((server) => {
   )
 
   server.registerTool(
+    'get_venue_availability',
+    {
+      title: 'All-Venue Availability',
+      description: 'Verify that every configured venue is actively returning fresh quotes. A configured venue is not considered available until it is observed live.',
+      inputSchema: z.object({}),
+    },
+    async () => {
+      try {
+        const snapshot = await marketSnapshot()
+        const active = new Set(snapshot.quotes.filter(q => Number.isFinite(q.timestamp) && Date.now() - q.timestamp <= 15_000).map(q => q.venue))
+        return {content: [{type: 'text', text: JSON.stringify({
+          configuredVenues: snapshot.configuredVenues,
+          activeVenues: snapshot.configuredVenues.filter(v => active.has(v)),
+          inactiveVenues: snapshot.configuredVenues.filter(v => !active.has(v)),
+          configuredVenueCount: snapshot.assurance.configuredVenueCount,
+          activeVenueCount: snapshot.assurance.activeVenueCount,
+          venueCoverageRatio: snapshot.assurance.venueCoverageRatio,
+          allConfiguredVenuesActive: snapshot.assurance.configuredVenueCount > 0 && snapshot.assurance.activeVenueCount === snapshot.assurance.configuredVenueCount,
+          status: snapshot.assurance.status,
+        }, null, 2)}]}
+      } catch (error) {
+        return {content: [{type: 'text', text: JSON.stringify({error: error instanceof Error ? error.message : 'VENUE_AVAILABILITY_ERROR'}, null, 2)}], isError: true}
+      }
+    },
+  )
+
+  server.registerTool(
     'get_opportunity_assurance',
     {
       title: 'Opportunity Assurance',
-      description: 'Evaluate live quote freshness, flash-liquidity coverage, route coverage and positive-net paths. This is a readiness signal, not a profit guarantee.',
+      description: 'Evaluate all-venue engagement, quote freshness, flash-liquidity coverage and positive-net executable paths. This is a readiness signal, not a profit guarantee.',
       inputSchema: z.object({}),
     },
     async () => {
@@ -123,8 +152,7 @@ const handler = createMcpHandler((server) => {
     async () => {
       try {
         const snapshot = await marketSnapshot()
-        const profitable = snapshot.opportunities.filter(o => o.safe && o.net >= runtimeConfig.minNetProfitUsd)
-        return {content: [{type: 'text', text: JSON.stringify({count: profitable.length, opportunities: profitable}, null, 2)}]}
+        return {content: [{type: 'text', text: JSON.stringify({count: snapshot.executableOpportunities.length, opportunities: snapshot.executableOpportunities}, null, 2)}]}
       } catch (error) {
         return {content: [{type: 'text', text: JSON.stringify({error: error instanceof Error ? error.message : 'PROFITABILITY_SCAN_ERROR'}, null, 2)}], isError: true}
       }
@@ -155,7 +183,7 @@ const handler = createMcpHandler((server) => {
 })
 
 async function securedHandler(request: Request) {
-  if (!authorized(request)) return unauthorized()
+  if (!authorized(request)) return new Response('MCP authorization required', {status: 401})
   return handler(request)
 }
 
