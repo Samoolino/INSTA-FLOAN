@@ -1,8 +1,11 @@
 import {NextResponse} from 'next/server'
 import {evaluateCandidates} from '../../../lib/target-engine'
-import {discoverOpportunities} from '../../../lib/market'
+import {discoverOpportunities, type Quote} from '../../../lib/market'
 import {getLiveQuotes} from '../../../lib/live-quote-adapter'
 import {runtimeConfig} from '../../../lib/config'
+import {getFlashLiquidity} from '../../../lib/flash-liquidity'
+import {assessOpportunityCoverage} from '../../../lib/opportunity-assurance'
+import {buildOpportunityGraph} from '../../../lib/opportunity-graph'
 
 export const dynamic='force-dynamic'
 
@@ -11,7 +14,7 @@ export async function GET(request:Request){
  const requestedTarget=Number(searchParams.get('target'))
  const target=Number.isFinite(requestedTarget)&&requestedTarget>0 ? requestedTarget : runtimeConfig.targetProfitUsd
 
- let quotes=[]
+ let quotes: Quote[]=[]
  let adapterError: string | undefined
  try {
    quotes=await getLiveQuotes()
@@ -19,19 +22,39 @@ export async function GET(request:Request){
    adapterError=error instanceof Error ? error.message : 'LIVE_QUOTE_ADAPTER_ERROR'
  }
 
+ let liquidity= [] as ReturnType<typeof getFlashLiquidity>
+ let liquidityError: string | undefined
+ try {
+   liquidity=getFlashLiquidity()
+ } catch (error) {
+   liquidityError=error instanceof Error ? error.message : 'FLASH_LIQUIDITY_CONFIGURATION_ERROR'
+ }
+
  const opportunities=discoverOpportunities(quotes)
+ const graph=buildOpportunityGraph(liquidity, quotes)
+ const assurance=assessOpportunityCoverage(quotes,liquidity,opportunities)
  const candidates=opportunities.map(o=>({...o}))
  const result=evaluateCandidates(candidates,{targetProfit:target,minNetProfit:runtimeConfig.minNetProfitUsd,safetyReserve:runtimeConfig.safetyReserveUsd,maxPaths:runtimeConfig.maxPathsPerCycle,maxCycles:runtimeConfig.maxCycles})
 
  return NextResponse.json({
-   status: adapterError ? 'live-quote-error' : 'live-quotes',
+   status: adapterError || liquidityError ? 'live-readiness-error' : 'live-quotes',
    liveExecution:runtimeConfig.liveExecution,
    quoteCount:quotes.length,
    opportunityCount:opportunities.length,
+   assurance,
+   routeGraph: {
+     routeCount:graph.length,
+     freshRouteCount:graph.filter(r=>r.quoteFresh).length,
+     liquidityCoveredRouteCount:graph.filter(r=>r.liquidityUsd>0).length,
+     routes:graph,
+   },
    ...result,
    adapterError,
-   message:adapterError
-     ? 'Live quote adapter failed or is not configured; no transaction is submitted.'
-     : 'Quotes are read from explicitly configured on-chain routers. No transaction is submitted by scan.',
+   liquidityError,
+   message:adapterError || liquidityError
+     ? 'Live market/liquidity configuration is incomplete; no transaction is submitted.'
+     : assurance.status === 'NO_PROFITABLE_PATHS'
+       ? 'Live routes are being monitored, but no positive-net opportunity currently clears the profitability gate.'
+       : 'Live routes are read from configured on-chain sources. No transaction is submitted by scan.',
  })
 }
