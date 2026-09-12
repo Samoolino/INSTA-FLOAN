@@ -63,3 +63,4 @@ export default function Home(){
    <section className="panel"><h2>Target-attainment controls</h2><div className="actions"><button onClick={scan} disabled={scanning}>{scanning?'SCANNING…':'SCAN / REFRESH'}</button><button disabled>ARM · GATED</button><button disabled>START TARGET · GATED</button><button disabled>STOP / KILL SWITCH</button></div><p className="muted">Procedure: refresh → detect → assure → simulate → validate gates → explicit authorization → execute → verify/reconcile. The current production boundary intentionally stops before authorization/submission.</p></section>
    <footer>WALLETCONNECT · MEMORY-ONLY PRIVATE-KEY IMPORT · NO SEED PHRASES · LIVE QUOTES READ-ONLY · REAL EXECUTION OFF</footer>
  </main>
+}
