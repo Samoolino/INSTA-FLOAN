@@ -1,4 +1,4 @@
-import {type Address, createPublicClient, http} from 'viem'
+import {type Address, createPublicClient, defineChain, http} from 'viem'
 import {mainnet, arbitrum, base, bsc, type Chain} from 'viem/chains'
 import {type Quote} from './market'
 import {quoteUniswapV2} from './uniswap-v2'
@@ -6,6 +6,8 @@ import {quoteUniswapV2} from './uniswap-v2'
 type LiveRoute = {
   venue?: string
   chainId: number
+  chainName?: string
+  nativeSymbol?: string
   rpcUrlEnv: string
   router: Address
   path: Address[]
@@ -18,7 +20,7 @@ type LiveRoute = {
   slippageUsd?: number
 }
 
-const chains: Record<number, Chain> = {1: mainnet, 42161: arbitrum, 8453: base, 56: bsc}
+const knownChains: Record<number, Chain> = {1: mainnet, 42161: arbitrum, 8453: base, 56: bsc}
 
 function routesFromEnv(): LiveRoute[] {
   const raw = process.env.LIVE_QUOTE_ROUTES
@@ -29,12 +31,29 @@ function routesFromEnv(): LiveRoute[] {
   return parsed as LiveRoute[]
 }
 
+function chainFor(route: LiveRoute): Chain | undefined {
+  if (!Number.isInteger(route.chainId) || route.chainId <= 0) return undefined
+  if (knownChains[route.chainId]) return knownChains[route.chainId]
+  if (!route.chainName) return undefined
+  return defineChain({
+    id: route.chainId,
+    name: route.chainName,
+    nativeCurrency: {name: route.nativeSymbol || 'Native', symbol: route.nativeSymbol || 'NATIVE', decimals: 18},
+    rpcUrls: {default: {http: []}},
+  })
+}
+
 export function getConfiguredLiveVenues(): string[] {
   const venues = new Set<string>()
   for (const route of routesFromEnv()) {
     if (typeof route.venue === 'string' && route.venue.trim()) venues.add(route.venue.trim())
   }
   return [...venues].sort()
+}
+
+/** Return the EVM chain IDs represented by valid, explicitly configured routes. */
+export function getConfiguredLiveChainIds(): number[] {
+  return [...new Set(routesFromEnv().map(route => route.chainId).filter(id => Number.isInteger(id) && id > 0))].sort((a,b)=>a-b)
 }
 
 async function decimals(client: ReturnType<typeof createPublicClient>, token: Address, configured?: number) {
@@ -50,19 +69,23 @@ async function decimals(client: ReturnType<typeof createPublicClient>, token: Ad
  * Real on-chain quote adapter. It never fabricates prices: routes are explicitly
  * configured, getAmountsOut is read from the configured router, and USD values
  * are calculated only from operator-supplied token prices.
+ *
+ * Known networks use viem's canonical chain definitions. Additional EVM networks
+ * can be added without a source-code change by supplying chainId + chainName and
+ * a validated RPC environment variable in LIVE_QUOTE_ROUTES.
  */
 export async function getLiveQuotes(): Promise<Quote[]> {
   const routes = routesFromEnv()
   const quotes: Quote[] = []
 
   for (const route of routes) {
-    if (!Number.isInteger(route.chainId) || !chains[route.chainId]) continue
+    const chain = chainFor(route)
+    if (!chain) continue
     if (!route.rpcUrlEnv || !route.router || !Array.isArray(route.path) || route.path.length < 2) continue
     if (!Number.isFinite(route.tokenInUsd) || route.tokenInUsd <= 0 || !Number.isFinite(route.tokenOutUsd) || route.tokenOutUsd <= 0) continue
 
     const rpcUrl = process.env[route.rpcUrlEnv]
     if (!rpcUrl) continue
-    const chain = chains[route.chainId]
     const client = createPublicClient({chain, transport:http(rpcUrl)})
     const blockNumber = await client.getBlockNumber()
     const inDecimals = await decimals(client, route.path[0], route.tokenInDecimals)
