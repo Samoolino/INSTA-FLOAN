@@ -1,6 +1,6 @@
 'use client'
 
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {privateKeyToAccount} from 'viem/accounts'
 import {useAccount, useConnect, useDisconnect, useSwitchChain} from 'wagmi'
 import {mainnet} from 'wagmi/chains'
@@ -8,6 +8,11 @@ import {mainnet} from 'wagmi/chains'
 function normalizeKey(value:string){
   const key=value.trim()
   return key.startsWith('0x') ? key as `0x${string}` : `0x${key}` as `0x${string}`
+}
+
+function publishWalletIdentity(address?: string){
+  if(typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent('insta-wallet-identity', {detail:{address:address||null}}))
 }
 
 export default function WalletButton(){
@@ -21,6 +26,8 @@ export default function WalletButton(){
   const [importError,setImportError]=useState('')
   const [riskConfirmed,setRiskConfirmed]=useState(false)
 
+  useEffect(()=>publishWalletIdentity(isConnected?address:importedAddress),[address,isConnected,importedAddress])
+
   function importKey(){
     setImportError('')
     try{
@@ -29,6 +36,7 @@ export default function WalletButton(){
       if(!/^0x[0-9a-fA-F]{64}$/.test(key)) throw new Error('Enter a 32-byte hexadecimal private key.')
       const account=privateKeyToAccount(key)
       setImportedAddress(account.address)
+      publishWalletIdentity(account.address)
       setPrivateKey('')
       setRiskConfirmed(false)
       setShowImport(false)
@@ -37,6 +45,7 @@ export default function WalletButton(){
 
   function removeImportedKey(){
     setImportedAddress(undefined)
+    publishWalletIdentity(undefined)
     setPrivateKey('')
     setRiskConfirmed(false)
     setImportError('')
