@@ -21,7 +21,7 @@ export function getHummingbotBridgeStatus() {
   const liveTradingEnabled = process.env.HUMMINGBOT_LIVE_TRADING_ENABLED === 'true'
   const executionAuthorized = process.env.HUMMINGBOT_EXECUTION_AUTHORIZED === 'true'
 
-  const networks = [
+  const networks: Array<[string, string | undefined]> = [
     ['ethereum', process.env.ETH_RPC_URL],
     ['arbitrum', process.env.ARB_RPC_URL],
     ['base', process.env.BASE_RPC_URL],
