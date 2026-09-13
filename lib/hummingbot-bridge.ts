@@ -17,6 +17,7 @@ function list(value: string | undefined): string[] {
 export function getHummingbotBridgeStatus() {
   const cex = list(process.env.HUMMINGBOT_CEX_CONNECTORS)
   const dex = list(process.env.HUMMINGBOT_DEX_CONNECTORS)
+  const configuredNetworks = list(process.env.HUMMINGBOT_NETWORKS)
   const bridgeEnabled = process.env.HUMMINGBOT_BRIDGE_ENABLED === 'true'
   const liveTradingEnabled = process.env.HUMMINGBOT_LIVE_TRADING_ENABLED === 'true'
   const executionAuthorized = process.env.HUMMINGBOT_EXECUTION_AUTHORIZED === 'true'
@@ -31,7 +32,10 @@ export function getHummingbotBridgeStatus() {
     ['avalanche', process.env.AVALANCHE_RPC_URL],
   ]
 
-  const activeNetworks = networks.filter(([, rpc]) => Boolean(rpc)).map(([name]) => name)
+  const activeNetworks = [...new Set([
+    ...networks.filter(([, rpc]) => Boolean(rpc)).map(([name]) => name),
+    ...configuredNetworks,
+  ])]
 
   const connectors: BridgeConnectorStatus[] = [
     ...cex.map(name => ({
