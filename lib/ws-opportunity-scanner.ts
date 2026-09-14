@@ -181,7 +181,7 @@ export const binanceConfig = (symbols: string[]): WsVenueConfig => ({
   parse: payload => {
     const data = (payload as any)?.data ?? payload
     if (data?.e !== 'depthUpdate' || !data?.s) return null
-    return {symbol: data.s, bids: data.b?.map((x: any) => [Number(x[0]), Number(x[1])]), asks: data.a?.map((x: any) => [Number(x[0]), Number(x[1])]), sequence: Number(data.u)}
+    return {symbol: data.s.replace('_', '').toUpperCase(), bids: data.b?.map((x: any) => [Number(x[0]), Number(x[1])]), asks: data.a?.map((x: any) => [Number(x[0]), Number(x[1])]), sequence: Number(data.u)}
   },
 })
 
@@ -189,7 +189,7 @@ export const coinbaseConfig = (symbols: string[]): WsVenueConfig => ({
   venue: 'COINBASE_WS',
   url: 'wss://ws-feed.exchange.coinbase.com',
   symbols,
-  subscribe: values => ({type: 'subscribe', product_ids: values.map(s => s.toUpperCase().replace('_', '-')), channels: ['level2'] }),
+  subscribe: values => ({type: 'subscribe', product_ids: values.map(s => s.replace('USDT', '-USD')), channels: ['level2'] }),
   parse: payload => {
     const data = payload as any
     if (!data?.product_id || !Array.isArray(data?.changes)) return null
@@ -199,7 +199,7 @@ export const coinbaseConfig = (symbols: string[]): WsVenueConfig => ({
       if (side === 'buy') bids.push(level)
       if (side === 'sell') asks.push(level)
     }
-    return {symbol: data.product_id, bids, asks}
+    return {symbol: data.product_id.replace('-USD', 'USDT').replace('-', '').toUpperCase(), bids, asks}
   },
 })
 
@@ -212,6 +212,6 @@ export const bybitConfig = (symbols: string[]): WsVenueConfig => ({
     const data = payload as any
     const body = data?.data
     if (!body?.s || !body?.b || !body?.a) return null
-    return {symbol: body.s, bids: body.b.map((x: any) => [Number(x[0]), Number(x[1])]), asks: body.a.map((x: any) => [Number(x[0]), Number(x[1])]), sequence: Number(body.u)}
+    return {symbol: body.s.replace('-', '').toUpperCase(), bids: body.b.map((x: any) => [Number(x[0]), Number(x[1])]), asks: body.a.map((x: any) => [Number(x[0]), Number(x[1])]), sequence: Number(body.u)}
   },
 })
