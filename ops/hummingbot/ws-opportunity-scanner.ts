@@ -1,7 +1,7 @@
 import { createPublicClient, webSocket } from 'viem'
 import { WebSocketOpportunityScanner, binanceConfig, bybitConfig, coinbaseConfig, type ScannerSnapshot } from '../../lib/ws-opportunity-scanner'
 
-const symbols = (process.env.WS_SCAN_SYMBOLS || 'BTCUSDT,ETHUSDT,BNBUSDT').split(',').map(s => s.trim()).filter(Boolean)
+const symbols = (process.env.WS_SCAN_SYMBOLS || 'BTCUSDT,ETHUSDT,BNBUSDT').split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
 const minNetUsd = Number(process.env.WS_SCAN_MIN_NET_USD || '1')
 const feeBps = Number(process.env.WS_SCAN_FEE_BPS || '10')
 const slippageBps = Number(process.env.WS_SCAN_SLIPPAGE_BPS || '5')
@@ -9,7 +9,7 @@ const maxAgeMs = Number(process.env.WS_SCAN_MAX_AGE_MS || '2000')
 
 const configs = []
 if (process.env.WS_SCAN_ENABLE_BINANCE !== 'false') configs.push(binanceConfig(symbols))
-if (process.env.WS_SCAN_ENABLE_COINBASE !== 'false') configs.push(coinbaseConfig(symbols.map(s => s.replace('USDT', '-USD'))))
+if (process.env.WS_SCAN_ENABLE_COINBASE !== 'false') configs.push(coinbaseConfig(symbols))
 if (process.env.WS_SCAN_ENABLE_BYBIT !== 'false') configs.push(bybitConfig(symbols))
 
 const scanner = new WebSocketOpportunityScanner(configs, { minNetUsd, feeBps, slippageBps, maxAgeMs, maxResults: 50 })
