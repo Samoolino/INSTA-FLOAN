@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'node:test'
 import {findCrossVenueOpportunities, vwap, type OrderBook} from './ws-opportunity-scanner'
 
 describe('websocket opportunity scanner', () => {
