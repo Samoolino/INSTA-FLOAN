@@ -1,5 +1,3 @@
-import {WebSocket} from 'undici'
-
 export type OrderLevel = [price: number, quantity: number]
 export type OrderBook = {
   venue: string
