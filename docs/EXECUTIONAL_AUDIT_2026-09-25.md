@@ -10,7 +10,7 @@ Date: 2026-09-25
 
 **Live-money execution:** **NOT AUTHORIZED**.
 
-**Reason:** the repository intentionally remains fail-closed and the mandatory production evidence has not been established in this audit.
+**Reason:** the repository remains fail-closed and the mandatory production evidence has not been established in this audit.
 
 ## Implemented
 
@@ -27,12 +27,14 @@ Date: 2026-09-25
 - Unified engine view combining DEX and Hummingbot discovery.
 - Unified execution endpoint with execution-truth authorization.
 - Fail-closed execution gates and kill-switch model.
+- Hermes Agent operator-controlled sidecar installation boundary for Linux/macOS/WSL2 and native Windows.
+- Hermes is explicitly outside the Vercel/browser/live-money authorization boundary.
 
 ## Execution gates required
 
 The current execution-truth implementation requires controlled-fork attestation, production wallet authorization, risk validation, profitability validation, slippage/gas validation and an enabled production execution path before authorization can become valid.
 
-The current code also requires both live execution and autonomous submission before `SUBMISSION_ENABLED`. This is intentionally incompatible with the safer project policy where autonomous submission remains false. Therefore **manual explicit authorization and autonomous submission must be separated before real production execution can be enabled**.
+The execution model now separates **manual explicit authorization** from **autonomous submission**. `AUTONOMOUS_SUBMISSION=false` does not prevent a manually authorized execution from becoming submission-enabled once all deterministic gates and `LIVE_EXECUTION=true` pass. `AUTOMATION_ENABLED` is likewise not a prerequisite for a manually authorized execution.
 
 ## Audit findings
 
@@ -44,6 +46,9 @@ The current code also requires both live execution and autonomous submission bef
 4. WebSocket order-book data is freshness-gated.
 5. Cross-venue opportunities are evaluated using executable order-book size rather than headline prices only.
 6. Runtime secrets are represented through environment variables rather than committed values.
+7. Hermes is isolated as an operator-controlled diagnostic/assurance worker.
+8. The kill switch is now fail-closed: enabled blocks execution; disabled allows deterministic gates to continue.
+9. Manual authorization and autonomous submission are independent controls.
 
 ### B. Blocking production evidence
 
@@ -55,21 +60,25 @@ The current code also requires both live execution and autonomous submission bef
 6. No production execution-path enablement evidence was verified here.
 7. No first-live-trade receipt/P&L evidence exists in the repository evidence inspected for this audit.
 
-### C. Logic issue requiring correction before live execution
+### C. Corrected execution-truth logic
 
-`lib/execution-truth.ts` currently treats `PRODUCTION_KILL_SWITCH_ENABLED` as a positive prerequisite for readiness while the runbook specifies `PRODUCTION_KILL_SWITCH_ENABLED=false` as the condition for real execution. The readiness predicate must be corrected so an enabled kill switch blocks execution and a disabled kill switch permits the gate to continue.
+`lib/execution-truth.ts` previously treated `PRODUCTION_KILL_SWITCH_ENABLED` as a positive prerequisite and required `AUTONOMOUS_SUBMISSION=true` for `SUBMISSION_ENABLED`. Both conditions conflicted with the intended fail-closed/manual-first policy.
 
-The same file currently requires `AUTONOMOUS_SUBMISSION=true` for `SUBMISSION_ENABLED`. That is incompatible with the project's stated explicit-authorization/manual-first policy. Before enabling real execution, the execution model should support:
+The implementation is now corrected:
 
-- `AUTHORIZED` = explicit operator authorization is present;
-- `SUBMISSION_ENABLED` = live execution + all deterministic gates + explicit authorization;
-- `AUTONOMOUS_SUBMISSION` remains an independent optional automation mode and must not be required for a manually authorized trade.
+- `killSwitchEnabled=true` blocks execution;
+- `killSwitchEnabled=false` permits deterministic gates to continue;
+- explicit operator authorization can enable manual submission;
+- `AUTONOMOUS_SUBMISSION` remains an independent optional automation mode;
+- `AUTOMATION_ENABLED=false` does not block a manually authorized execution.
 
 ## Hermes integration boundary
 
-Hermes Agent should run as a **separate persistent AI-agent worker**, not as a Vercel dependency and not inside the browser bundle. It may inspect the repository, analyze scanner output, prepare diagnostics, and operate approved MCP/tool workflows. It must not receive exchange withdrawal permissions, raw private keys, or an unrestricted live-trading authorization token.
+Hermes Agent runs as a **separate persistent AI-agent worker**, not as a Vercel dependency and not inside the browser bundle. It may inspect the repository, analyze scanner output, prepare diagnostics, generate audit/evidence reports, and operate approved MCP/tool workflows.
 
-The repository will provide an installer and MCP configuration template; the actual Hermes runtime and credentials remain on the operator-controlled worker.
+It must not receive exchange withdrawal permissions, raw private keys, seed phrases, or an unrestricted live-trading authorization token.
+
+The repository now contains both shell and native Windows worker installers. The actual Hermes runtime, model credentials and user-level MCP credentials remain on the operator-controlled worker.
 
 ## Stage definition
 
@@ -81,7 +90,8 @@ OPPORTUNITY SCANNING               IMPLEMENTED
 PROFITABILITY FILTER               IMPLEMENTED
 UNIFIED CONTROL PLANE              IMPLEMENTED
 HUMMINGBOT ADAPTER                  IMPLEMENTED
-HERMES SIDE-CAR                    INSTALLATION READY
+EXECUTION-TRUTH GATE                IMPLEMENTED / CORRECTED
+HERMES SIDE-CAR                    INSTALLER + BOUNDARY IMPLEMENTED
 CONTROLLED-FORK ATTESTATION         REQUIRED / NOT EVIDENCED
 PRODUCTION RISK ATTESTATION         REQUIRED / NOT EVIDENCED
 PRODUCTION WALLET AUTHORIZATION     REQUIRED / NOT EVIDENCED
