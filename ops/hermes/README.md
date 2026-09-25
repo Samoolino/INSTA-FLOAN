@@ -1,6 +1,6 @@
 # Hermes Agent sidecar
 
-Hermes Agent is integrated as an operator-controlled persistent worker for INSTA-FLOAN. It is **not** installed into the Vercel browser bundle.
+Hermes Agent is integrated as an operator-controlled persistent worker for INSTA-FLOAN. It is **not** installed into the Vercel browser bundle and is not part of the live-money authorization path.
 
 Official Hermes Agent repository: https://github.com/NousResearch/hermes-agent
 
@@ -8,7 +8,7 @@ Official documentation: https://hermes-agent.nousresearch.com/docs/
 
 ## Install
 
-On the persistent Linux/WSL2/macOS worker:
+### Linux / macOS / WSL2
 
 ```bash
 cd ~/INSTA-FLOAN
@@ -17,21 +17,34 @@ chmod +x ops/hermes/install-worker.sh
 ./ops/hermes/install-worker.sh
 ```
 
-The official installer supports Linux, macOS, WSL2 and Android/Termux; native Windows has a separate installer path.
+### Native Windows
+
+Run PowerShell from the repository:
+
+```powershell
+cd .\INSTA-FLOAN
+git pull origin main
+Set-ExecutionPolicy -Scope Process Bypass
+.\ops\hermes\install-worker.ps1
+```
+
+The native Windows installer is included in the repository. Hermes' official installer supports a separate native-Windows path.
 
 ## Configure
 
 After installation:
 
-```bash
+```text
 hermes setup
-# or
+```
+
+or choose a model directly:
+
+```text
 hermes model
 ```
 
-Hermes supports multiple model providers and MCP servers.
-
-For this project, start with **read-only/diagnostic capabilities**:
+For the INSTA-FLOAN worker, begin with read-only/diagnostic capabilities:
 
 - inspect repository state;
 - inspect scanner output;
@@ -40,13 +53,19 @@ For this project, start with **read-only/diagnostic capabilities**:
 - prepare audit/evidence reports;
 - propose remediation actions.
 
-Do not grant:
+Do not grant Hermes:
 
 - wallet private keys;
 - seed phrases;
 - exchange withdrawal permission;
 - unrestricted production execution tokens;
 - autonomous transaction submission authority.
+
+## MCP boundary
+
+Hermes supports MCP servers. If MCP is enabled for this project, expose only the minimum read/diagnostic tools required for the worker. Do not place secrets in repository configuration.
+
+A project-local MCP configuration should remain a template; actual credentials belong in the operator's Hermes configuration under `~/.hermes/`.
 
 ## Intended architecture
 
@@ -70,6 +89,7 @@ ExecutionTruth
     +-- slippage/gas
     +-- wallet authorization
     +-- explicit production authorization
+    +-- kill switch
     |
     v
 Hummingbot / DEX execution boundary
