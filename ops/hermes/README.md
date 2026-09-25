@@ -17,7 +17,7 @@ chmod +x ops/hermes/install-worker.sh
 ./ops/hermes/install-worker.sh
 ```
 
-The official Hermes documentation currently supports Linux, macOS, WSL2 and Android/Termux through its installer; native Windows has a separate installer path. citeturn0search1turn0search4
+The official installer supports Linux, macOS, WSL2 and Android/Termux; native Windows has a separate installer path.
 
 ## Configure
 
@@ -29,7 +29,7 @@ hermes setup
 hermes model
 ```
 
-Hermes supports multiple model providers and can add MCP servers. citeturn0search2
+Hermes supports multiple model providers and MCP servers.
 
 For this project, start with **read-only/diagnostic capabilities**:
 
