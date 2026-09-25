@@ -39,8 +39,8 @@ const boolEnv = (name: string) => process.env[name] === 'true'
  * can never be interpreted as authorization.
  *
  * Manual explicit authorization and autonomous submission are intentionally
- * separate controls. Autonomous submission is an optional automation mode;
- * it is never a prerequisite for a manually authorized live execution.
+ * separate controls. Neither AUTONOMOUS_SUBMISSION nor AUTOMATION_ENABLED is
+ * required for an explicitly authorized manual execution.
  */
 export function getExecutionTruth(explicitAuthorizationPresent = false): ExecutionTruth {
   const controlledForkAttested = boolEnv('CONTROLLED_FORK_VALIDATED')
@@ -74,9 +74,9 @@ export function getExecutionTruth(explicitAuthorizationPresent = false): Executi
   let state: ExecutionTruthState = 'BLOCKED'
   let reason = 'Production execution is fail-closed until all mandatory gates and authorization requirements pass.'
 
-  if (!liveExecution || !automationEnabled) {
+  if (!liveExecution) {
     state = 'DISCOVERY_ONLY'
-    reason = 'Live execution and/or automation is disabled; discovery and revalidation may continue.'
+    reason = 'Live execution is disabled; discovery and revalidation may continue.'
   } else if (!controlledForkAttested) {
     state = 'PROFITABLE_CANDIDATE'
     reason = 'Controlled-fork attestation is required before execution authorization.'
@@ -89,12 +89,9 @@ export function getExecutionTruth(explicitAuthorizationPresent = false): Executi
   } else if (!explicitAuthorizationPresent && explicitAuthorizationRequired) {
     state = 'READY_FOR_AUTHORIZATION'
     reason = 'All deterministic gates pass; explicit execution authorization is still required.'
-  } else if (authorized && !liveExecution) {
-    state = 'AUTHORIZED'
-    reason = 'Execution is explicitly authorized, but live execution remains disabled.'
   } else if (authorized && !automationEnabled) {
     state = 'AUTHORIZED'
-    reason = 'Execution is explicitly authorized, but automation remains disabled.'
+    reason = 'Execution is explicitly authorized; autonomous automation remains disabled.'
   } else if (authorized && submissionEnabled) {
     state = 'SUBMISSION_ENABLED'
     reason = autonomousSubmission
